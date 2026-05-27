@@ -1,0 +1,35 @@
+Package: restraintsfalls
+Title: Physical Restraint Use and Falls in Nursing Homes
+Version: 0.0.0.9000
+Authors@R:
+    person("Ivan", "Marino", , email = "ivan.marino@upipa.tn.it", role = c("aut", "cre"))
+Description: Research compendium for the analysis of the association between
+    physical restraint use and falls in nursing homes in the province of
+    Trento, Italy. Uses longitudinal quality monitoring data from the
+    Indicare Salute Lab system (2016-2025).
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+Imports:
+    DBI,
+    dplyr,
+    lubridate,
+    odbc,
+    stringr,
+    tidyr
+Suggests:
+    bayesplot,
+    cmdstanr,
+    ggplot2,
+    loo,
+    pkgdown,
+    quarto,
+    testthat (>= 3.0.0)
+URL: https://upipa.github.io/restraints-falls-nh/
+BugReports: https://github.com/upipa/restraints-falls-nh/issues
+Config/testthat/edition: 3
+VignetteBuilder: quarto
+Config/roxygen2/version: 8.0.0
+Depends: 
+    R (>= 3.5)

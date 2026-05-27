@@ -1,0 +1,11 @@
+^renv$
+^renv\.lock$
+^\.Rprofile$
+^data-raw$
+^manuscript$
+^AGENTS\.md$
+^\.Renviron$
+^_pkgdown\.yml$
+^docs$
+^\.github$
+^LICENSE\.md$

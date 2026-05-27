@@ -1,4 +1,4 @@
-#' Connect to the Indicare Salute database
+#' Connect to the Indicare Salute Lab database
 #'
 #' Opens a connection to the `IndicareSaluteLab` Azure SQL database via ODBC.
 #' Credentials are read from environment variables by default and can be set

@@ -1,0 +1,60 @@
+---
+title: "Does Physical Restraint Use Prevent Falls in Nursing Homes?"
+subtitle: "Evidence from a Decade of Quality Monitoring Data"
+vignette: >
+  %\VignetteIndexEntry{Does Physical Restraint Use Prevent Falls in Nursing Homes?}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(restraintsfalls)
+```
+
+## Background
+
+Physical restraint use in nursing homes is a common but controversial practice.
+One of the most frequently cited justifications is fall prevention. This analysis
+examines whether facility-level restraint prevalence is associated with lower
+fall rates, using longitudinal data from 2016 to 2025 across nursing homes in
+the province of Trento, Italy.
+
+## Data
+
+Data come from the **Indicare Salute Lab** quality monitoring system. Each
+observation represents a facility-year combination, with indicators for
+restraint prevalence and fall rates.
+
+## Model
+
+We use a Bayesian binomial model linking restraint prevalence to fall rates
+on the logit scale:
+
+$$
+\text{logit}(q_i) = \alpha \cdot \text{logit}(p_i) + \beta + \gamma \cdot t_i
+$$
+
+where $p_i$ is the latent restraint prevalence, $q_i$ is the fall probability,
+and $t_i$ is the year (centered).
+
+```{r}
+#| label: load-posteriors
+posteriors_path <- system.file(
+  "extdata",
+  "posteriors.rds",
+  package = "restraintsfalls"
+)
+if (file.exists(posteriors_path)) {
+  posteriors <- readRDS(posteriors_path)
+}
+```
+
+## Results
+
+<!-- Results will be filled in once the final model is selected -->
+
+## Conclusions
+
+<!-- To be written -->
