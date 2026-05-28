@@ -19,10 +19,9 @@ Imports:
     stringr,
     tidyr
 Suggests:
-    bayesplot,
+    bridgesampling,
     cmdstanr,
     ggplot2,
-    loo,
     pkgdown,
     quarto,
     testthat (>= 3.0.0)

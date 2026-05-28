@@ -1,0 +1,511 @@
+---
+title: "Model Development — Restraints & Falls"
+subtitle: "Internal working document (not shipped with the package)"
+format:
+  html:
+    toc: true
+    code-fold: false
+    self-contained: true
+execute:
+  eval: false
+  warning: false
+  message: false
+---
+
+## Obiettivo
+
+Sviluppare e validare il modello bayesiano che stima l'associazione tra
+contenzione fisica e cadute nelle RSA trentine. Questo documento traccia
+le iterazioni del modello — solo il modello finale selezionato verrà
+riportato nella vignetta e nel manoscritto.
+
+## Setup
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(cmdstanr)
+library(bridgesampling)
+
+theme_set(theme_minimal())
+```
+
+## Dati
+
+```{r}
+#| label: load-data
+load(here::here("data", "restraints_falls.rda"))
+glimpse(restraints_falls)
+```
+
+## Modello 1: Bivariate Binomial Type II
+
+Denominatori separati per contenzione ($n^x_i$, prevalenza puntuale al giorno
+indice) e cadute ($n^y_i$, incidenza nel periodo). I due indicatori sono
+condizionatamente indipendenti dato il parametro condiviso $p$.
+
+### Specifica
+
+La BI2 si decompone ponendo $n_{\min} = \min(n^x_i, n^y_i)$:
+
+$
+(X_{1i},\, Y_{1i}) \sim \text{BI1}(n_{\min},\; p,\, q,\, r)
+$
+
+$
+X_{2i} \sim \text{Binomial}(n^x_i - n_{\min},\; p)
+$
+
+$
+Y_{2i} \sim \text{Binomial}(n^y_i - n_{\min},\; p \cdot q + (1-p) \cdot r)
+$
+
+$
+X_i = X_{1i} + X_{2i}, \quad Y_i = Y_{1i} + Y_{2i}
+$
+
+Quando $n^x_i \leq n^y_i$ (caso tipico), $X_{2i}$ è degenere a 0.
+Quando $n^x_i > n^y_i$ (24 osservazioni, differenze di 1–4 unità), $Y_{2i}$
+è degenere a 0 e la convoluzione avviene su $x_1$.
+
+La BI1 è la binomiale bivariata di tipo I con PMF congiunta:
+
+$
+P(X_1 = x,\, Y_1 = y \mid n, p, q, r) =
+p^x (1-p)^{n-x} (1-q)^x\, r^y\, (1-r)^{n-x-y}
+\sum_{d=m}^{M} \binom{n}{n-x-y+d,\; x-d,\; y-d,\; d}
+\left[\frac{q(1-r)}{(1-q)r}\right]^d
+$
+
+con $m = \max(0, x+y-n)$, $M = \min(x, y)$.
+
+La PMF di BI2 si ottiene per convoluzione. Se $n^x \leq n^y$ (somma su $y_1$):
+
+$
+P(X=x, Y=y) = \sum_{y_1} P_{\text{BI1}}(x, y_1 \mid n^x, p, q, r) \cdot P_{\text{Bin}}(y - y_1 \mid n^y - n^x,\; pq + (1-p)r)
+$
+
+Se $n^x > n^y$ (somma su $x_1$):
+
+$
+P(X=x, Y=y) = \sum_{x_1} P_{\text{BI1}}(x_1, y \mid n^y, p, q, r) \cdot P_{\text{Bin}}(x - x_1 \mid n^x - n^y,\; p)
+$
+
+Il numero di termini è al più $|n^x_i - n^y_i| + 1$ (tipicamente 1–5).
+
+**Parametri:**
+
+- $p$: probabilità di essere contenuto
+- $q$: probabilità di cadere se contenuto
+- $r$: probabilità di cadere se non contenuto
+- $\delta = q - r$: effetto della contenzione sulla probabilità di caduta
+
+**Prior:** uniforme implicita su $p, q, r \in [0, 1]$.
+
+**Osservazioni parziali:** le marginali sono $X \sim \text{Bin}(n^x, p)$ e
+$Y \sim \text{Bin}(n^y, pq + (1-p)r)$.
+
+### Preparazione dati per Stan
+
+Non scartiamo osservazioni incomplete. Il modello gestisce tre gruppi:
+
+1. **Entrambi osservati** → contribuiscono a stimare $p$, $q$, $r$
+2. **Solo contenzione** → contribuiscono a stimare $p$
+3. **Solo cadute** → contribuiscono a stimare la probabilità marginale $p \cdot q + (1-p) \cdot r$
+
+```{r}
+#| label: prep-stan-data
+# Appaio contenzione e cadute per unità/tempo
+wide <- restraints_falls |>
+  filter(
+    indicatore %in%
+      c(
+        "2.1 Persone soggette a contenzione fisica",
+        "1.1 Residenti caduti nel periodo di riferimento"
+      )
+  ) |>
+  mutate(
+    tipo = if_else(str_detect(indicatore, "contenzione"), "restr", "falls")
+  ) |>
+  select(anno, mese, ente, id_settore, tipo, n, d) |>
+  pivot_wider(names_from = tipo, values_from = c(n, d))
+
+# Classifico in tre gruppi
+has_restr <- !is.na(wide$n_restr) & !is.na(wide$d_restr)
+has_falls <- !is.na(wide$n_falls) & !is.na(wide$d_falls)
+
+both <- wide |> filter(has_restr & has_falls)
+x_only <- wide |> filter(has_restr & !has_falls)
+y_only <- wide |> filter(!has_restr & has_falls)
+
+cat("Entrambi osservati:", nrow(both), "\n")
+cat("Solo contenzione:", nrow(x_only), "\n")
+cat("Solo cadute:", nrow(y_only), "\n")
+cat("Nessuno dei due:", sum(!has_restr & !has_falls), "\n")
+
+# Lista dati per Stan
+stan_data <- list(
+  N_both = nrow(both),
+  n_x_both = as.integer(both$d_restr),
+  n_y_both = as.integer(both$d_falls),
+  x_both = as.integer(both$n_restr),
+  y_both = as.integer(both$n_falls),
+
+  N_x_only = nrow(x_only),
+  n_x_only = as.integer(x_only$d_restr),
+  x_only = as.integer(x_only$n_restr),
+
+  N_y_only = nrow(y_only),
+  n_y_only = as.integer(y_only$d_falls),
+  y_only = as.integer(y_only$n_falls)
+)
+
+str(stan_data)
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-1
+mod <- cmdstan_model(here::here("inst/stan/bivariate_binomial_type2.stan"))
+```
+
+```{r}
+#| label: fit-model-1
+fit <- mod$sample(
+  data = stan_data,
+  seed = 476240500,
+  chains = 4,
+  parallel_chains = 4
+)
+
+fit$save_object(here::here("inst/extdata/fit_type2_global.rds"))
+```
+
+### Diagnostica
+
+```{r}
+#| label: diagnostics-1
+fit$summary(variables = c("p", "q", "r", "prob_fall", "delta_qr", "rr"))
+fit$diagnostic_summary()
+```
+
+### Posterior Predictive Check
+
+Calcoliamo la concordanza: percentuale di valori osservati che rientrano
+nell'intervallo al 95% dei valori previsti dal modello.
+
+```{r}
+#| label: ppc-1
+x_rep <- fit$draws("x_rep", format = "df")
+y_rep <- fit$draws("y_rep", format = "matrix")
+
+# Intervallo previsivo 95% per ogni osservazione
+x_lo <- map_dbl(as.data.frame(x_rep), quantile, 0.025)
+x_hi <- map_dbl(as.data.frame(x_rep), quantile, 0.975)
+y_lo <- map_dbl(as.data.frame(y_rep), quantile, 0.025)
+y_hi <- map_dbl(as.data.frame(y_rep), quantile, 0.975)
+
+# Concordanza
+x_obs <- stan_data$x_both
+y_obs <- stan_data$y_both
+
+x_coverage <- mean(x_obs >= x_lo & x_obs <= x_hi)
+y_coverage <- mean(y_obs >= y_lo & y_obs <= y_hi)
+
+cat(sprintf("Concordanza X (contenzione): %.1f%%\n", x_coverage * 100))
+cat(sprintf("Concordanza Y (cadute):      %.1f%%\n", y_coverage * 100))
+```
+
+E' evidente che il modello è troppo semplice al momento, ma questo lo sapevamo già.
+
+### Risultati
+
+```{r}
+#| label: results-1
+fit$summary(variables = c("p", "q", "r", "prob_fall", "delta_qr", "rr"))
+```
+
+## Modello 2: Trend temporale su p
+
+Estendiamo il Modello 1 aggiungendo un trend logistico al parametro $p$:
+
+$$
+\text{logit}(p_i) = \alpha_p + \beta_p \cdot t_i
+$$
+
+dove $t_i$ è il tempo centrato e scalato in $[-1, 1]$.
+$q$ e $r$ restano costanti. Il trend su $p$ influenza indirettamente la
+probabilità marginale di caduta ma non la relazione tra contenzione e cadute
+(definita da $\delta = q - r$).
+
+**Prior:** $\alpha_p, \beta_p \sim \text{Normal}(0, 10)$; $q, r$ uniforme
+implicita su $[0, 1]$.
+
+### Preparazione dati aggiuntivi
+
+```{r}
+#| label: prep-data-trend
+compute_t <- function(df) df$anno + (df$mese - 0.5) / 12
+
+t_all <- c(compute_t(both), compute_t(x_only), compute_t(y_only))
+t_mid <- (min(t_all) + max(t_all)) / 2
+t_range <- (max(t_all) - min(t_all)) / 2
+
+stan_data_trend <- c(
+  stan_data,
+  list(
+    t_both = (compute_t(both) - t_mid) / t_range,
+    t_x_only = (compute_t(x_only) - t_mid) / t_range,
+    t_y_only = (compute_t(y_only) - t_mid) / t_range
+  )
+)
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-2
+mod_trend <- cmdstan_model(here::here(
+  "inst/stan/bivariate_binomial_type2_trend.stan"
+))
+```
+
+```{r}
+#| label: fit-model-2
+fit_trend <- mod_trend$sample(
+  data = stan_data_trend,
+  seed = 934984693,
+  chains = 4,
+  parallel_chains = 4
+)
+
+fit_trend$save_object(here::here("inst/extdata/fit_type2_trend.rds"))
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-2
+fit_trend$summary(
+  variables = c("alpha_p", "beta_p", "q", "r", "delta_qr", "rr", "p_center")
+)
+fit_trend$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-2
+x_rep_tr <- fit_trend$draws("x_rep", format = "matrix")
+y_rep_tr <- fit_trend$draws("y_rep", format = "matrix")
+
+x_lo_tr <- map_dbl(as.data.frame(x_rep_tr), quantile, 0.025)
+x_hi_tr <- map_dbl(as.data.frame(x_rep_tr), quantile, 0.975)
+y_lo_tr <- map_dbl(as.data.frame(y_rep_tr), quantile, 0.025)
+y_hi_tr <- map_dbl(as.data.frame(y_rep_tr), quantile, 0.975)
+
+x_cov_tr <- mean(stan_data$x_both >= x_lo_tr & stan_data$x_both <= x_hi_tr)
+y_cov_tr <- mean(stan_data$y_both >= y_lo_tr & stan_data$y_both <= y_hi_tr)
+
+cat(sprintf("Concordanza X (contenzione): %.1f%%\n", x_cov_tr * 100))
+cat(sprintf("Concordanza Y (cadute):      %.1f%%\n", y_cov_tr * 100))
+```
+
+Il trend temporale non migliora la concordanza rispetto al Modello 1: la
+variabilità di $p$ tra enti domina quella nel tempo.
+
+## Modello 3: p per ente
+
+Estendiamo il Modello 1 con un parametro $p_j$ specifico per ogni ente ($J = 36$),
+mantenendo $q$ e $r$ globali.
+
+**Prior:** $p_j \sim \text{Uniform}(0, 1)$ indipendenti; $q, r$ uniforme
+implicita su $[0, 1]$.
+
+### Preparazione dati aggiuntivi
+
+```{r}
+#| label: prep-data-facility
+all_entes <- sort(unique(c(both$ente, x_only$ente, y_only$ente)))
+ente_map <- setNames(seq_along(all_entes), all_entes)
+J <- length(all_entes)
+
+stan_data_facility <- c(
+  stan_data,
+  list(
+    J = J,
+    ente_both = unname(ente_map[as.character(both$ente)]),
+    ente_x_only = unname(ente_map[as.character(x_only$ente)]),
+    ente_y_only = unname(ente_map[as.character(y_only$ente)])
+  )
+)
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-3
+mod_facility <- cmdstan_model(here::here(
+  "inst/stan/bivariate_binomial_type2_facility.stan"
+))
+```
+
+```{r}
+#| label: fit-model-3
+fit_facility <- mod_facility$sample(
+  data = stan_data_facility,
+  seed = 789269353,
+  chains = 4,
+  parallel_chains = 4
+)
+
+fit_facility$save_object(here::here("inst/extdata/fit_type2_facility.rds"))
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-3
+fit_facility$summary(variables = c("q", "r", "delta_qr", "rr"))
+fit_facility$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-3
+# Concordanza su tutti i gruppi di osservazioni
+coverage_both <- tibble(
+  x_obs = stan_data$x_both,
+  y_obs = stan_data$y_both,
+  x_lo = map_dbl(
+    as.data.frame(fit_facility$draws("x_rep", format = "matrix")),
+    quantile,
+    0.025
+  ),
+  x_hi = map_dbl(
+    as.data.frame(fit_facility$draws("x_rep", format = "matrix")),
+    quantile,
+    0.975
+  ),
+  y_lo = map_dbl(
+    as.data.frame(fit_facility$draws("y_rep", format = "matrix")),
+    quantile,
+    0.025
+  ),
+  y_hi = map_dbl(
+    as.data.frame(fit_facility$draws("y_rep", format = "matrix")),
+    quantile,
+    0.975
+  )
+) |>
+  mutate(
+    x_coverage = between(x_obs, x_lo, x_hi),
+    y_coverage = between(y_obs, y_lo, y_hi)
+  )
+
+coverage_x_only <- tibble(
+  x_obs = stan_data$x_only,
+  x_lo = map_dbl(
+    as.data.frame(fit_facility$draws("x_only_rep", format = "matrix")),
+    quantile,
+    0.025
+  ),
+  x_hi = map_dbl(
+    as.data.frame(fit_facility$draws("x_only_rep", format = "matrix")),
+    quantile,
+    0.975
+  )
+) |>
+  mutate(
+    x_coverage = between(x_obs, x_lo, x_hi),
+    y_coverage = NA
+  )
+
+coverage_y_only <- tibble(
+  y_obs = stan_data$y_only,
+  y_lo = map_dbl(
+    as.data.frame(fit_facility$draws("y_only_rep", format = "matrix")),
+    quantile,
+    0.025
+  ),
+  y_hi = map_dbl(
+    as.data.frame(fit_facility$draws("y_only_rep", format = "matrix")),
+    quantile,
+    0.975
+  )
+) |>
+  mutate(
+    x_coverage = NA,
+    y_coverage = between(y_obs, y_lo, y_hi)
+  )
+
+bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
+  summarise(
+    n_x = sum(!is.na(x_coverage)),
+    n_y = sum(!is.na(y_coverage)),
+    x_coverage = sum(x_coverage, na.rm = TRUE),
+    y_coverage = sum(y_coverage, na.rm = TRUE)
+  ) |>
+  mutate(
+    x_concordance = x_coverage / n_x,
+    y_concordance = y_coverage / n_y,
+    fit_x = (log(n_x + 1) +
+      lchoose(n_x, x_coverage) +
+      x_coverage * log(0.95) +
+      (n_x - x_coverage) * log(0.05)) /
+      log(10),
+    fit_y = (log(n_y + 1) +
+      lchoose(n_y, y_coverage) +
+      y_coverage * log(0.95) +
+      (n_y - y_coverage) * log(0.05)) /
+      log(10)
+  )
+```
+
+Miglioramento sostanziale sulla concordanza X rispetto al Modello 1, ma
+ancora sotto il 95% — specialmente nel gruppo x_only (71.1%), suggerendo
+variabilità residua di $p$ nel tempo all'interno di ciascun ente.
+
+## Confronto modelli (Bayes Factor)
+
+Utilizziamo `bridgesampling` per stimare la verosimiglianza marginale di
+ciascun modello e calcolare i Bayes factor.
+
+```{r}
+#| label: bayes-factors
+library(bridgesampling)
+
+set.seed(172103519)
+bs_base <- bridge_sampler(fit, silent = TRUE)
+bs_trend <- bridge_sampler(fit_trend, silent = TRUE)
+bf_trend_vs_base <- bf(bs_trend, bs_base)
+
+set.seed(592203804)
+bs_facility <- bridge_sampler(fit_facility, silent = TRUE)
+bf_facility_vs_base <- bf(bs_facility, bs_base)
+
+cat("=== BF Trend vs Base ===\n")
+print(bf_trend_vs_base)
+cat("\n=== BF Facility vs Base ===\n")
+print(bf_facility_vs_base)
+```
+
+### Riepilogo
+
+| Modello | Conc. X (both) | Conc. Y (both) | Conc. X (x_only) | Conc. Y (y_only) | BF vs Base |
+|---|---|---|---|---|---|
+| 1 — Base (p globale) | 36.8% | 89.7% | — | — | — |
+| 2 — Trend su p | 36.8% | 89.5% | — | — | 0.00035 |
+| 3 — p per ente | 84.7% | 90.4% | 71.1% | 92.8% | Inf |
+
+Il Bayes factor seleziona in modo decisivo il **Modello 3** (p per ente).
+Il trend temporale è irrilevante (BF ≈ 0.0004, evidenza forte contro).
+
+La stime di $q$ e $r$ sono stabili tra i tre modelli ($\delta \approx -0.06$,
+$RR \approx 0.43$), indicando che il risultato principale non dipende dalla
+specificazione di $p$.
+
+## Session Info
+
+```{r}
+#| label: session-info
+sessionInfo()
+```

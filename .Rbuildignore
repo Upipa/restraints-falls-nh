@@ -1,4 +1,5 @@
 ^renv$
+^inst/stan/.*\.exe$
 ^renv\.lock$
 ^\.Rprofile$
 ^data-raw$

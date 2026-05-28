@@ -5,3 +5,6 @@
 AGENTS.md
 docs/
 .Renviron
+inst/extdata/*.rds
+inst/stan/*.exe
+.vscode
