@@ -26,8 +26,6 @@ riportato nella vignetta e nel manoscritto.
 library(tidyverse)
 library(cmdstanr)
 library(bridgesampling)
-
-theme_set(theme_minimal())
 ```
 
 ## Dati
@@ -464,6 +462,169 @@ Miglioramento sostanziale sulla concordanza X rispetto al Modello 1, ma
 ancora sotto il 95% — specialmente nel gruppo x_only (71.1%), suggerendo
 variabilità residua di $p$ nel tempo all'interno di ciascun ente.
 
+## Modello 4: p per ente con trend temporale comune
+
+Estendiamo il Modello 3 aggiungendo un trend temporale comune a tutti gli enti:
+
+$
+\text{logit}(p_{ij}) = \beta_j + \alpha \cdot t_i
+$
+
+- $\beta_j$: intercetta per ente ($J = 36$), cattura la prevalenza di contenzione strutturale di ciascuna struttura
+- $\alpha$: slope temporale comune a tutti gli enti
+- $t_i$: tempo in z-score (media e deviazione standard calcolate sull'intero dataset)
+- $q$, $r$: globali
+
+**Prior:** $\beta_j, \alpha \sim \text{Normal}(0, 10)$ indipendenti, tutti con
+`target += normal_lpdf(...)` esplicito; $q, r$ uniforme implicita su $[0,1]$.
+
+### Preparazione dati aggiuntivi
+
+```{r}
+#| label: prep-data-facility-trend
+compute_t_raw <- function(df) df$anno + (df$mese - 0.5) / 12
+
+t_all  <- c(compute_t_raw(both), compute_t_raw(x_only), compute_t_raw(y_only))
+t_mean <- mean(t_all)
+t_sd   <- sd(t_all)
+
+all_entes <- sort(unique(c(both$ente, x_only$ente, y_only$ente)))
+ente_map  <- setNames(seq_along(all_entes), all_entes)
+J         <- length(all_entes)
+
+stan_data_facility_trend <- c(stan_data, list(
+  J           = J,
+  ente_both   = unname(ente_map[as.character(both$ente)]),
+  t_both      = (compute_t_raw(both)   - t_mean) / t_sd,
+  ente_x_only = unname(ente_map[as.character(x_only$ente)]),
+  t_x_only    = (compute_t_raw(x_only) - t_mean) / t_sd,
+  ente_y_only = unname(ente_map[as.character(y_only$ente)]),
+  t_y_only    = (compute_t_raw(y_only) - t_mean) / t_sd
+))
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-4
+mod_facility_trend <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_trend.stan")
+)
+```
+
+```{r}
+#| label: fit-model-4
+fit_facility_trend <- mod_facility_trend$sample(
+  data = stan_data_facility_trend,
+  seed = 114337790,
+  chains = 4,
+  parallel_chains = 4
+)
+
+fit_facility_trend$save_object(
+  here::here("inst/extdata/fit_type2_facility_trend.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-4
+fit_facility_trend$summary(variables = c("alpha", "q", "r", "delta_qr", "rr"))
+fit_facility_trend$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-4
+coverage_both <- tibble(
+  x_obs = stan_data$x_both,
+  y_obs = stan_data$y_both,
+  x_lo = map_dbl(
+    as.data.frame(fit_facility_trend$draws("x_rep", format = "matrix")),
+    quantile, 0.025
+  ),
+  x_hi = map_dbl(
+    as.data.frame(fit_facility_trend$draws("x_rep", format = "matrix")),
+    quantile, 0.975
+  ),
+  y_lo = map_dbl(
+    as.data.frame(fit_facility_trend$draws("y_rep", format = "matrix")),
+    quantile, 0.025
+  ),
+  y_hi = map_dbl(
+    as.data.frame(fit_facility_trend$draws("y_rep", format = "matrix")),
+    quantile, 0.975
+  )
+) |>
+  mutate(
+    x_coverage = between(x_obs, x_lo, x_hi),
+    y_coverage = between(y_obs, y_lo, y_hi)
+  )
+
+coverage_x_only <- tibble(
+  x_obs = stan_data$x_only,
+  x_lo = map_dbl(
+    as.data.frame(fit_facility_trend$draws("x_only_rep", format = "matrix")),
+    quantile, 0.025
+  ),
+  x_hi = map_dbl(
+    as.data.frame(fit_facility_trend$draws("x_only_rep", format = "matrix")),
+    quantile, 0.975
+  )
+) |>
+  mutate(x_coverage = between(x_obs, x_lo, x_hi), y_coverage = NA)
+
+coverage_y_only <- tibble(
+  y_obs = stan_data$y_only,
+  y_lo = map_dbl(
+    as.data.frame(fit_facility_trend$draws("y_only_rep", format = "matrix")),
+    quantile, 0.025
+  ),
+  y_hi = map_dbl(
+    as.data.frame(fit_facility_trend$draws("y_only_rep", format = "matrix")),
+    quantile, 0.975
+  )
+) |>
+  mutate(x_coverage = NA, y_coverage = between(y_obs, y_lo, y_hi))
+
+bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
+  summarise(
+    n_x        = sum(!is.na(x_coverage)),
+    n_y        = sum(!is.na(y_coverage)),
+    x_coverage = sum(x_coverage, na.rm = TRUE),
+    y_coverage = sum(y_coverage, na.rm = TRUE)
+  ) |>
+  mutate(
+    x_concordance = x_coverage / n_x,
+    y_concordance = y_coverage / n_y,
+    fit_x = (log(n_x + 1) +
+      lchoose(n_x, x_coverage) +
+      x_coverage * log(0.95) +
+      (n_x - x_coverage) * log(0.05)) / log(10),
+    fit_y = (log(n_y + 1) +
+      lchoose(n_y, y_coverage) +
+      y_coverage * log(0.95) +
+      (n_y - y_coverage) * log(0.05)) / log(10)
+  )
+```
+
+### Bayes Factor vs Modello 3
+
+```{r}
+#| label: bf-4-vs-3
+set.seed(354875763)
+bs_facility_trend <- bridge_sampler(fit_facility_trend, silent = TRUE)
+bs_facility       <- bridge_sampler(fit_facility,       silent = TRUE)
+bf_4_vs_3 <- bf(bs_facility_trend, bs_facility)
+print(bf_4_vs_3)
+```
+
+**Nota**: il confronto BF tra Modello 3 e Modello 4 risente della differenza
+strutturale tra le prior ($p_j \sim \text{Uniform}(0,1)$ nel M3 vs
+$\beta_j \sim \text{Normal}(0,10)$ nel M4). Il BF non è interpretabile come
+puro confronto del fit — la concordanza è la metrica più affidabile per il
+confronto pratico tra i due modelli.
+
 ## Confronto modelli (Bayes Factor)
 
 Utilizziamo `bridgesampling` per stimare la verosimiglianza marginale di
@@ -475,6 +636,7 @@ library(bridgesampling)
 
 set.seed(172103519)
 bs_base <- bridge_sampler(fit, silent = TRUE)
+set.seed(367721347)
 bs_trend <- bridge_sampler(fit_trend, silent = TRUE)
 bf_trend_vs_base <- bf(bs_trend, bs_base)
 
@@ -490,16 +652,26 @@ print(bf_facility_vs_base)
 
 ### Riepilogo
 
-| Modello | Conc. X (both) | Conc. Y (both) | Conc. X (x_only) | Conc. Y (y_only) | BF vs Base |
+| Modello | Conc. X | Conc. Y | fit_x | fit_y | BF vs Base |
 |---|---|---|---|---|---|
 | 1 — Base (p globale) | 36.8% | 89.7% | — | — | — |
 | 2 — Trend su p | 36.8% | 89.5% | — | — | 0.00035 |
-| 3 — p per ente | 84.7% | 90.4% | 71.1% | 92.8% | Inf |
+| 3 — p per ente | 83.5% | 90.7% | −106 | −18.0 | Inf |
+| 4 — p per ente + trend | 83.6% | 91.3% | −105 | −13.1 | Inf\* |
 
-Il Bayes factor seleziona in modo decisivo il **Modello 3** (p per ente).
-Il trend temporale è irrilevante (BF ≈ 0.0004, evidenza forte contro).
+\* BF vs M3 non comparabile direttamente per differenza strutturale delle prior.
 
-La stime di $q$ e $r$ sono stabili tra i tre modelli ($\delta \approx -0.06$,
+La concordanza è calcolata aggregando tutti i gruppi (both + x_only + y_only).
+Il target è fit ≥ 1 per entrambe le variabili; il massimo raggiungibile con
+questa dimensione campionaria è circa 0.5, quindi l'obiettivo operativo
+è avvicinarsi il più possibile a 0.
+
+Il trend temporale migliora modestamente fit_y (da −18 a −13), suggerendo
+variabilità temporale residua nella probabilità di caduta. Il fit_x rimane
+lontano dall'obiettivo — la variabilità nella prevalenza di contenzione
+dentro ciascun ente nel tempo non è ancora catturata dal modello.
+
+Le stime di $q$ e $r$ sono stabili tra tutti i modelli ($\delta \approx -0.06$,
 $RR \approx 0.43$), indicando che il risultato principale non dipende dalla
 specificazione di $p$.
 
