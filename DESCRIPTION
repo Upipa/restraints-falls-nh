@@ -30,5 +30,6 @@ BugReports: https://github.com/upipa/restraints-falls-nh/issues
 Config/testthat/edition: 3
 VignetteBuilder: quarto
 Config/roxygen2/version: 8.0.0
+Additional_repositories: https://stan-dev.r-universe.dev
 Depends: 
     R (>= 3.5)
