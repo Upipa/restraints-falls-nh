@@ -7,4 +7,5 @@ docs/
 .Renviron
 inst/extdata/*.rds
 inst/stan/*.exe
+manuscript/_output/
 .vscode

@@ -1,0 +1,34 @@
+---
+title: "La contenzione fisica nelle RSA come strategia di prevenzione delle cadute: un'analisi bayesiana longitudinale su dati di monitoraggio della qualità"
+format: typst
+lang: it
+author:
+  - name: Ivan Marino
+    email: ivan.marino@upipa.tn.it
+    affiliation: 
+      - name: Upipa
+        city: Trento
+        url: https://www.upipa.tn.it/
+---
+
+**Area Tematica:** HTA nei setting di cura, percorsi, processi e modelli organizzativi
+
+---
+
+## Obiettivi
+
+Lo studio valuta l'associazione tra l'utilizzo della contenzione fisica e il rischio di caduta nelle residenze sanitarie assistenziali (RSA). La contenzione fisica rappresenta una tecnologia assistenziale diffusa con finalità preventiva, ma la cui efficacia è contestata dalla letteratura internazionale. L'obiettivo è fornire evidenza empirica longitudinale su questa associazione, considerando sia le cadute totali sia --- in estensione prevista --- le cadute con esito e le cadute con esito maggiore (eventi con fratture o gravi conseguenze cliniche), così da valutare se l'eventuale effetto protettivo riguardi gli eventi clinicamente rilevanti o esclusivamente le cadute senza conseguenze.
+
+## Metodologia
+
+I dati provengono dal sistema di monitoraggio Indicare Salute Lab (UPIPA), che raccoglie indicatori di qualità da 36 RSA della provincia di Trento dal 2016 al 2025. L'unità di analisi è la struttura/mese; il dataset comprende circa 3.200 osservazioni su 36 strutture, con informazioni sulla prevalenza puntuale di contenzione fisica al giorno indice e sull'incidenza delle cadute nel periodo di riferimento.
+
+Il modello statistico è una distribuzione binomiale bivariata di tipo II (BI2), stimata in approccio bayesiano tramite MCMC (Stan). La BI2 gestisce la diversa natura dei denominatori dei due indicatori e stima congiuntamente la probabilità di essere contenuto --- specifica per struttura con trend temporale comune sulla scala logit --- la probabilità di cadere se contenuto ($q$) e la probabilità di cadere se non contenuto ($r$). Il confronto tra specifiche modellistiche alternative è effettuato tramite Bayes factor.
+
+## Risultati
+
+Le stime correnti indicano una probabilità di caduta del 4,7% nei residenti contenuti (IC 90%: 4,5--4,9%) e del 10,7% nei non contenuti (IC 90%: 10,5--10,9%), con un risk ratio di 0,44 (IC 90%: 0,41--0,47). La prevalenza di contenzione mostra un trend in calo nel decennio. L'interpretazione causale è soggetta a importanti limitazioni: il design ecologico non esclude la causalità inversa, per cui una caduta potrebbe paradossalmente ridurre la probabilità di essere contenuti, generando un'associazione negativa artificiosa. L'estensione dell'analisi alle cadute con esito è cruciale per la valutazione complessiva: analisi preliminari suggeriscono che l'effetto della contenzione sugli eventi con conseguenze cliniche sia non significativo o peggiorativo. Il quadro emergente indicherebbe quindi che la contenzione riduce le sole cadute senza rilevanza clinica, senza offrire protezione --- o aggravando il rischio --- per le cadute significative, mettendone in discussione l'utilizzo come strategia preventiva nelle RSA.
+
+## Riferimenti bibliografici
+
+*Da aggiungere.*
