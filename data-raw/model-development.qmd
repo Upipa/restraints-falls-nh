@@ -177,7 +177,17 @@ fit <- mod$sample(
   parallel_chains = 4
 )
 
-fit$save_object(here::here("inst/extdata/fit_type2_global.rds"))
+# Bridge sampling eseguito subito, mentre l'eseguibile è ancora disponibile
+set.seed(172103519)
+bs_base <- bridge_sampler(fit, silent = TRUE)
+cat("log marginal likelihood M1:", bs_base$logml, "\n")
+
+# Salva posterior + log marginal likelihood in un unico oggetto
+# Per ricaricare: obj <- readRDS(path); fit <- obj$fit; log_ml <- obj$bridge$logml
+write_rds(
+  list(fit = fit, bridge = bs_base),
+  here::here("inst/extdata/fit_type2_global.rds")
+)
 ```
 
 ### Diagnostica
@@ -278,7 +288,13 @@ fit_trend <- mod_trend$sample(
   parallel_chains = 4
 )
 
-fit_trend$save_object(here::here("inst/extdata/fit_type2_trend.rds"))
+set.seed(367721347)
+bs_trend <- bridge_sampler(fit_trend, silent = TRUE)
+cat("log marginal likelihood M2:", bs_trend$logml, "\n")
+write_rds(
+  list(fit = fit_trend, bridge = bs_trend),
+  here::here("inst/extdata/fit_type2_trend.rds")
+)
 ```
 
 ### Diagnostica e PPC
@@ -356,7 +372,13 @@ fit_facility <- mod_facility$sample(
   parallel_chains = 4
 )
 
-fit_facility$save_object(here::here("inst/extdata/fit_type2_facility.rds"))
+set.seed(592203804)
+bs_facility <- bridge_sampler(fit_facility, silent = TRUE)
+cat("log marginal likelihood M3:", bs_facility$logml, "\n")
+write_rds(
+  list(fit = fit_facility, bridge = bs_facility),
+  here::here("inst/extdata/fit_type2_facility.rds")
+)
 ```
 
 ### Diagnostica e PPC
@@ -484,31 +506,35 @@ $
 #| label: prep-data-facility-trend
 compute_t_raw <- function(df) df$anno + (df$mese - 0.5) / 12
 
-t_all  <- c(compute_t_raw(both), compute_t_raw(x_only), compute_t_raw(y_only))
+t_all <- c(compute_t_raw(both), compute_t_raw(x_only), compute_t_raw(y_only))
 t_mean <- mean(t_all)
-t_sd   <- sd(t_all)
+t_sd <- sd(t_all)
 
 all_entes <- sort(unique(c(both$ente, x_only$ente, y_only$ente)))
-ente_map  <- setNames(seq_along(all_entes), all_entes)
-J         <- length(all_entes)
+ente_map <- setNames(seq_along(all_entes), all_entes)
+J <- length(all_entes)
 
-stan_data_facility_trend <- c(stan_data, list(
-  J           = J,
-  ente_both   = unname(ente_map[as.character(both$ente)]),
-  t_both      = (compute_t_raw(both)   - t_mean) / t_sd,
-  ente_x_only = unname(ente_map[as.character(x_only$ente)]),
-  t_x_only    = (compute_t_raw(x_only) - t_mean) / t_sd,
-  ente_y_only = unname(ente_map[as.character(y_only$ente)]),
-  t_y_only    = (compute_t_raw(y_only) - t_mean) / t_sd
-))
+stan_data_facility_trend <- c(
+  stan_data,
+  list(
+    J = J,
+    ente_both = unname(ente_map[as.character(both$ente)]),
+    t_both = (compute_t_raw(both) - t_mean) / t_sd,
+    ente_x_only = unname(ente_map[as.character(x_only$ente)]),
+    t_x_only = (compute_t_raw(x_only) - t_mean) / t_sd,
+    ente_y_only = unname(ente_map[as.character(y_only$ente)]),
+    t_y_only = (compute_t_raw(y_only) - t_mean) / t_sd
+  )
+)
 ```
 
 ### Fit del modello
 
 ```{r}
 #| label: compile-model-4
-mod_facility_trend <- cmdstan_model(
-  here::here("inst/stan/bivariate_binomial_type2_facility_trend.stan")
+#| mod_facility_trend <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_trend.stan"),
+  force = TRUE
 )
 ```
 
@@ -521,7 +547,11 @@ fit_facility_trend <- mod_facility_trend$sample(
   parallel_chains = 4
 )
 
-fit_facility_trend$save_object(
+set.seed(354875763)
+bs_facility_trend <- bridge_sampler(fit_facility_trend, silent = TRUE)
+cat("log marginal likelihood M4:", bs_facility_trend$logml, "\n")
+write_rds(
+  list(fit = fit_facility_trend, bridge = bs_facility_trend),
   here::here("inst/extdata/fit_type2_facility_trend.rds")
 )
 ```
@@ -541,19 +571,23 @@ coverage_both <- tibble(
   y_obs = stan_data$y_both,
   x_lo = map_dbl(
     as.data.frame(fit_facility_trend$draws("x_rep", format = "matrix")),
-    quantile, 0.025
+    quantile,
+    0.025
   ),
   x_hi = map_dbl(
     as.data.frame(fit_facility_trend$draws("x_rep", format = "matrix")),
-    quantile, 0.975
+    quantile,
+    0.975
   ),
   y_lo = map_dbl(
     as.data.frame(fit_facility_trend$draws("y_rep", format = "matrix")),
-    quantile, 0.025
+    quantile,
+    0.025
   ),
   y_hi = map_dbl(
     as.data.frame(fit_facility_trend$draws("y_rep", format = "matrix")),
-    quantile, 0.975
+    quantile,
+    0.975
   )
 ) |>
   mutate(
@@ -565,11 +599,13 @@ coverage_x_only <- tibble(
   x_obs = stan_data$x_only,
   x_lo = map_dbl(
     as.data.frame(fit_facility_trend$draws("x_only_rep", format = "matrix")),
-    quantile, 0.025
+    quantile,
+    0.025
   ),
   x_hi = map_dbl(
     as.data.frame(fit_facility_trend$draws("x_only_rep", format = "matrix")),
-    quantile, 0.975
+    quantile,
+    0.975
   )
 ) |>
   mutate(x_coverage = between(x_obs, x_lo, x_hi), y_coverage = NA)
@@ -578,19 +614,21 @@ coverage_y_only <- tibble(
   y_obs = stan_data$y_only,
   y_lo = map_dbl(
     as.data.frame(fit_facility_trend$draws("y_only_rep", format = "matrix")),
-    quantile, 0.025
+    quantile,
+    0.025
   ),
   y_hi = map_dbl(
     as.data.frame(fit_facility_trend$draws("y_only_rep", format = "matrix")),
-    quantile, 0.975
+    quantile,
+    0.975
   )
 ) |>
   mutate(x_coverage = NA, y_coverage = between(y_obs, y_lo, y_hi))
 
 bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
   summarise(
-    n_x        = sum(!is.na(x_coverage)),
-    n_y        = sum(!is.na(y_coverage)),
+    n_x = sum(!is.na(x_coverage)),
+    n_y = sum(!is.na(y_coverage)),
     x_coverage = sum(x_coverage, na.rm = TRUE),
     y_coverage = sum(y_coverage, na.rm = TRUE)
   ) |>
@@ -600,11 +638,13 @@ bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
     fit_x = (log(n_x + 1) +
       lchoose(n_x, x_coverage) +
       x_coverage * log(0.95) +
-      (n_x - x_coverage) * log(0.05)) / log(10),
+      (n_x - x_coverage) * log(0.05)) /
+      log(10),
     fit_y = (log(n_y + 1) +
       lchoose(n_y, y_coverage) +
       y_coverage * log(0.95) +
-      (n_y - y_coverage) * log(0.05)) / log(10)
+      (n_y - y_coverage) * log(0.05)) /
+      log(10)
   )
 ```
 
@@ -612,9 +652,7 @@ bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
 
 ```{r}
 #| label: bf-4-vs-3
-set.seed(354875763)
-bs_facility_trend <- bridge_sampler(fit_facility_trend, silent = TRUE)
-bs_facility       <- bridge_sampler(fit_facility,       silent = TRUE)
+# bs_facility_trend e bs_facility già calcolati nei rispettivi chunk di fit
 bf_4_vs_3 <- bf(bs_facility_trend, bs_facility)
 print(bf_4_vs_3)
 ```
@@ -625,23 +663,322 @@ $\beta_j \sim \text{Normal}(0,10)$ nel M4). Il BF non è interpretabile come
 puro confronto del fit — la concordanza è la metrica più affidabile per il
 confronto pratico tra i due modelli.
 
+## Helper: concordanza e fit
+
+```{r}
+#| label: helper-coverage
+compute_fit <- function(fit_obj, stan_data) {
+  get_q <- function(draws, p) {
+    map_dbl(as.data.frame(draws), quantile, p)
+  }
+
+  coverage_both <- tibble(
+    x_obs = stan_data$x_both,
+    y_obs = stan_data$y_both,
+    x_lo = get_q(fit_obj$draws("x_rep", format = "matrix"), 0.025),
+    x_hi = get_q(fit_obj$draws("x_rep", format = "matrix"), 0.975),
+    y_lo = get_q(fit_obj$draws("y_rep", format = "matrix"), 0.025),
+    y_hi = get_q(fit_obj$draws("y_rep", format = "matrix"), 0.975)
+  ) |>
+    mutate(
+      x_coverage = between(x_obs, x_lo, x_hi),
+      y_coverage = between(y_obs, y_lo, y_hi)
+    )
+
+  coverage_x_only <- tibble(
+    x_obs = stan_data$x_only,
+    x_lo = get_q(fit_obj$draws("x_only_rep", format = "matrix"), 0.025),
+    x_hi = get_q(fit_obj$draws("x_only_rep", format = "matrix"), 0.975)
+  ) |>
+    mutate(x_coverage = between(x_obs, x_lo, x_hi), y_coverage = NA)
+
+  coverage_y_only <- tibble(
+    y_obs = stan_data$y_only,
+    y_lo = get_q(fit_obj$draws("y_only_rep", format = "matrix"), 0.025),
+    y_hi = get_q(fit_obj$draws("y_only_rep", format = "matrix"), 0.975)
+  ) |>
+    mutate(x_coverage = NA, y_coverage = between(y_obs, y_lo, y_hi))
+
+  bind_rows(coverage_both, coverage_x_only, coverage_y_only) |>
+    summarise(
+      n_x = sum(!is.na(x_coverage)),
+      n_y = sum(!is.na(y_coverage)),
+      x_coverage = sum(x_coverage, na.rm = TRUE),
+      y_coverage = sum(y_coverage, na.rm = TRUE)
+    ) |>
+    mutate(
+      x_concordance = x_coverage / n_x,
+      y_concordance = y_coverage / n_y,
+      fit_x = (log(n_x + 1) +
+        lchoose(n_x, x_coverage) +
+        x_coverage * log(0.95) +
+        (n_x - x_coverage) * log(0.05)) /
+        log(10),
+      fit_y = (log(n_y + 1) +
+        lchoose(n_y, y_coverage) +
+        y_coverage * log(0.95) +
+        (n_y - y_coverage) * log(0.05)) /
+        log(10)
+    )
+}
+```
+
+## Modello 5: trend quadratico
+
+Estendiamo il Modello 4 aggiungendo un termine quadratico al trend temporale:
+
+$
+\text{logit}(p_{ij}) = \beta_j + \alpha \cdot t_i + \gamma \cdot t_i^2
+$
+
+- $\beta_j$: intercetta per ente
+- $\alpha$: slope lineare comune
+- $\gamma$: coefficiente quadratico comune
+- $t_i$: tempo in z-score (stessa standardizzazione del M4)
+
+**Prior:** $\beta_j, \alpha, \gamma \sim \text{Normal}(0, 10)$ — tutti con `target += normal_lpdf(...)` esplicito.
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-5
+mod_quadratic <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_quadratic.stan")
+)
+```
+
+```{r}
+#| label: fit-model-5
+fit_quadratic <- mod_quadratic$sample(
+  data = stan_data_facility_trend,
+  seed = 286776314,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(720932853)
+bs_quadratic <- bridge_sampler(fit_quadratic, silent = TRUE)
+cat("log marginal likelihood M5:", bs_quadratic$logml, "\n")
+write_rds(
+  list(fit = fit_quadratic, bridge = bs_quadratic),
+  here::here("inst/extdata/fit_type2_facility_quadratic.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-5
+fit_quadratic$summary(
+  variables = c("alpha", "gamma", "q", "r", "delta_qr", "rr")
+)
+fit_quadratic$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-5
+compute_fit(fit_quadratic, stan_data)
+```
+
+### Bayes Factor vs Modello 4
+
+```{r}
+#| label: bf-5-vs-4
+# bs_quadratic e bs_facility_trend già calcolati nei rispettivi chunk di fit
+bf_5_vs_4 <- bf(bs_quadratic, bs_facility_trend, log = TRUE)
+print(bf_5_vs_4$bf / log(10))
+```
+
+## Modello 6: intercette per coppia ente/settore
+
+Sostituiamo l'intercetta per ente con un'intercetta per la coppia
+(ente, id_settore): il settore 25 dell'ente A è una struttura fisica
+diversa dal settore 25 dell'ente B.
+
+$
+\text{logit}(p_{ijk}) = \beta_k + \alpha \cdot t_i
+$
+
+- $\beta_k$: intercetta per coppia ente×settore ($K$ coppie uniche)
+- $\alpha$: slope temporale comune
+- $t_i$: z-score (stessa standardizzazione)
+
+**Prior:** $\beta_k, \alpha \sim \text{Normal}(0, 10)$ — tutti con `target += normal_lpdf(...)` esplicito.
+
+### Preparazione dati
+
+```{r}
+#| label: prep-data-facility-sector
+# Mappa coppia (ente, id_settore) → indice intero
+all_pairs <- sort(unique(c(
+  paste(both$ente, both$id_settore, sep = "_"),
+  paste(x_only$ente, x_only$id_settore, sep = "_"),
+  paste(y_only$ente, y_only$id_settore, sep = "_")
+)))
+pair_map <- setNames(seq_along(all_pairs), all_pairs)
+K <- length(all_pairs)
+
+stan_data_fac_sec <- c(
+  stan_data,
+  list(
+    K = K,
+    fac_sec_both = unname(pair_map[paste(
+      both$ente,
+      both$id_settore,
+      sep = "_"
+    )]),
+    t_both = stan_data_facility_trend$t_both,
+    fac_sec_x_only = unname(pair_map[paste(
+      x_only$ente,
+      x_only$id_settore,
+      sep = "_"
+    )]),
+    t_x_only = stan_data_facility_trend$t_x_only,
+    fac_sec_y_only = unname(pair_map[paste(
+      y_only$ente,
+      y_only$id_settore,
+      sep = "_"
+    )]),
+    t_y_only = stan_data_facility_trend$t_y_only
+  )
+)
+
+cat("Coppie ente×settore:", K, "\n")
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-6
+mod_fac_sec <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_sector.stan")
+)
+```
+
+```{r}
+#| label: fit-model-6
+fit_fac_sec <- mod_fac_sec$sample(
+  data = stan_data_fac_sec,
+  seed = 672882108,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(719249063)
+bs_fac_sec <- bridge_sampler(fit_fac_sec)
+cat("log marginal likelihood M6:", bs_fac_sec$logml, "\n")
+write_rds(
+  list(fit = fit_fac_sec, bridge = bs_fac_sec),
+  here::here("inst/extdata/fit_type2_facility_sector.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-6
+fit_fac_sec$summary(variables = c("alpha", "q", "r", "delta_qr", "rr"))
+fit_fac_sec$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-6
+compute_fit(fit_fac_sec, stan_data)
+```
+
+### Bayes Factor vs Modello 4
+
+**Nota:** M4 ha J=36 parametri $\beta_j$ con prior Normal(0,10); M6 ha K > 36
+parametri $\beta_k$ con la stessa prior. Il BF penalizza automaticamente la
+complessità aggiuntiva — un BF > 1 indica che la granularità ente×settore
+è giustificata dai dati.
+
+```{r}
+#| label: bf-6-vs-4
+# bs_fac_sec e bs_facility_trend già calcolati nei rispettivi chunk di fit
+bf_6_vs_4 <- bf(bs_fac_sec, bs_facility_trend, log = TRUE)
+print(bf_6_vs_4$bf / log(10))
+```
+
+## Modello 7: slope temporale per ente
+
+Estendiamo il Modello 4 lasciando che ogni ente abbia la propria slope
+temporale:
+
+$
+\text{logit}(p_{ij}) = \beta_j + \alpha_j \cdot t_i
+$
+
+- $\beta_j$: intercetta per ente
+- $\alpha_j$: slope temporale per ente
+- $t_i$: z-score (stessa standardizzazione)
+
+**Prior:** $\beta_j, \alpha_j \sim \text{Normal}(0, 10)$ — tutti con `target += normal_lpdf(...)` esplicito.
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-7
+mod_slopes <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_slopes.stan"),
+  force = TRUE
+)
+```
+
+```{r}
+#| label: fit-model-7
+# Riusa stan_data_facility_trend — stessa struttura dati del M4
+fit_slopes <- mod_slopes$sample(
+  data = stan_data_facility_trend,
+  seed = 170741878,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(941152032)
+bs_slopes <- bridge_sampler(fit_slopes, silent = TRUE)
+cat("log marginal likelihood M7:", bs_slopes$logml, "\n")
+write_rds(
+  list(fit = fit_slopes, bridge = bs_slopes),
+  here::here("inst/extdata/fit_type2_facility_slopes.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-7
+fit_slopes$summary(variables = c("q", "r", "delta_qr", "rr"))
+fit_slopes$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-7
+compute_fit(fit_slopes, stan_data)
+```
+
+### Bayes Factor vs Modello 4
+
+**Nota:** M7 aggiunge J=36 parametri $\alpha_j$ rispetto al singolo $\alpha$
+del M4 — il BF penalizza questa complessità; un BF > 1 indica che le slope
+ente-specifiche sono giustificate dai dati nonostante il costo parametrico.
+
+```{r}
+#| label: bf-7-vs-4
+# bs_slopes e bs_facility_trend già calcolati nei rispettivi chunk di fit
+bf_7_vs_4 <- bf(bs_slopes, bs_facility_trend)
+print(bf_7_vs_4)
+```
+
 ## Confronto modelli (Bayes Factor)
 
 Utilizziamo `bridgesampling` per stimare la verosimiglianza marginale di
 ciascun modello e calcolare i Bayes factor.
 
 ```{r}
-#| label: bayes-factors
-library(bridgesampling)
-
-set.seed(172103519)
-bs_base <- bridge_sampler(fit, silent = TRUE)
-set.seed(367721347)
-bs_trend <- bridge_sampler(fit_trend, silent = TRUE)
-bf_trend_vs_base <- bf(bs_trend, bs_base)
-
-set.seed(592203804)
-bs_facility <- bridge_sampler(fit_facility, silent = TRUE)
+#| label: bayes-factors-m1-m3
+# Tutti gli oggetti bridge sono già calcolati nei rispettivi chunk di fit
+bf_trend_vs_base    <- bf(bs_trend,    bs_base)
 bf_facility_vs_base <- bf(bs_facility, bs_base)
 
 cat("=== BF Trend vs Base ===\n")
@@ -650,26 +987,23 @@ cat("\n=== BF Facility vs Base ===\n")
 print(bf_facility_vs_base)
 ```
 
-### Riepilogo
+### Riepilogo completo
 
-| Modello | Conc. X | Conc. Y | fit_x | fit_y | BF vs Base |
+| Modello | Conc. X | Conc. Y | fit_x | fit_y | BF vs M4 |
 |---|---|---|---|---|---|
 | 1 — Base (p globale) | 36.8% | 89.7% | — | — | — |
-| 2 — Trend su p | 36.8% | 89.5% | — | — | 0.00035 |
-| 3 — p per ente | 83.5% | 90.7% | −106 | −18.0 | Inf |
-| 4 — p per ente + trend | 83.6% | 91.3% | −105 | −13.1 | Inf\* |
-
-\* BF vs M3 non comparabile direttamente per differenza strutturale delle prior.
+| 2 — Trend su p | 36.8% | 89.5% | — | — | — |
+| 3 — p per ente | 83.5% | 90.7% | −106 | −18.0 | — |
+| **4 — p per ente + trend** | **83.6%** | **91.3%** | **−105** | **−13.1** | *baseline* |
+| 5 — M4 + trend quadratico | | | | | |
+| 6 — Intercette ente×settore | | | | | |
+| 7 — Slope per ente | | | | | |
 
 La concordanza è calcolata aggregando tutti i gruppi (both + x_only + y_only).
-Il target è fit ≥ 1 per entrambe le variabili; il massimo raggiungibile con
-questa dimensione campionaria è circa 0.5, quindi l'obiettivo operativo
-è avvicinarsi il più possibile a 0.
 
-Il trend temporale migliora modestamente fit_y (da −18 a −13), suggerendo
-variabilità temporale residua nella probabilità di caduta. Il fit_x rimane
-lontano dall'obiettivo — la variabilità nella prevalenza di contenzione
-dentro ciascun ente nel tempo non è ancora catturata dal modello.
+- fit_max ≈ 2.0 (concordanza esattamente al 95% con n_x=2766, n_y=2943)
+- fit = 0 → concordanza ~95% (obiettivo minimo)
+- fit = −105 (M4) → concordanza 83.6%: mancano ~10.5 pp al bordo inferiore di fit ≥ 0
 
 Le stime di $q$ e $r$ sono stabili tra tutti i modelli ($\delta \approx -0.06$,
 $RR \approx 0.43$), indicando che il risultato principale non dipende dalla
