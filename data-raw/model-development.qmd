@@ -26,6 +26,8 @@ riportato nella vignetta e nel manoscritto.
 library(tidyverse)
 library(cmdstanr)
 library(bridgesampling)
+library(janitor)
+library(bayestestR)
 ```
 
 ## Dati
@@ -46,21 +48,21 @@ condizionatamente indipendenti dato il parametro condiviso $p$.
 
 La BI2 si decompone ponendo $n_{\min} = \min(n^x_i, n^y_i)$:
 
-$
+$$
 (X_{1i},\, Y_{1i}) \sim \text{BI1}(n_{\min},\; p,\, q,\, r)
-$
+$$
 
-$
+$$
 X_{2i} \sim \text{Binomial}(n^x_i - n_{\min},\; p)
-$
+$$
 
-$
+$$
 Y_{2i} \sim \text{Binomial}(n^y_i - n_{\min},\; p \cdot q + (1-p) \cdot r)
-$
+$$
 
-$
+$$
 X_i = X_{1i} + X_{2i}, \quad Y_i = Y_{1i} + Y_{2i}
-$
+$$
 
 Quando $n^x_i \leq n^y_i$ (caso tipico), $X_{2i}$ è degenere a 0.
 Quando $n^x_i > n^y_i$ (24 osservazioni, differenze di 1–4 unità), $Y_{2i}$
@@ -68,12 +70,12 @@ Quando $n^x_i > n^y_i$ (24 osservazioni, differenze di 1–4 unità), $Y_{2i}$
 
 La BI1 è la binomiale bivariata di tipo I con PMF congiunta:
 
-$
+$$
 P(X_1 = x,\, Y_1 = y \mid n, p, q, r) =
 p^x (1-p)^{n-x} (1-q)^x\, r^y\, (1-r)^{n-x-y}
 \sum_{d=m}^{M} \binom{n}{n-x-y+d,\; x-d,\; y-d,\; d}
 \left[\frac{q(1-r)}{(1-q)r}\right]^d
-$
+$$
 
 con $m = \max(0, x+y-n)$, $M = \min(x, y)$.
 
@@ -532,7 +534,8 @@ stan_data_facility_trend <- c(
 
 ```{r}
 #| label: compile-model-4
-#| mod_facility_trend <- cmdstan_model(
+
+mod_facility_trend <- cmdstan_model(
   here::here("inst/stan/bivariate_binomial_type2_facility_trend.stan"),
   force = TRUE
 )
@@ -900,6 +903,42 @@ bf_6_vs_4 <- bf(bs_fac_sec, bs_facility_trend, log = TRUE)
 print(bf_6_vs_4$bf / log(10))
 ```
 
+## Likelihood semplificata (modelli 7–9)
+
+Dai modelli 7 in poi abbandoniamo la convoluzione esatta della binomiale
+bivariata, troppo costosa per l'autodiff di NUTS (sommatoria su centinaia di
+termini per osservazione, differenziata a ogni leapfrog step). La likelihood
+"collassata" condiziona le cadute al numero osservato di contenuti:
+
+$
+X \sim \text{Bin}(n_x, p), \qquad
+Y \mid X \sim \text{Bin}\!\left(n_y,\; \bar p\right), \quad
+\bar p = \frac{X}{n_x}\,q + \left(1 - \frac{X}{n_x}\right) r
+$
+
+- Esatta in media per la parte condivisa; l'eccesso $n_y - n_x$ (mediana 2)
+  è trattato con la frazione di contenzione osservata.
+- L'identificazione di $q$ vs $r$ è preservata: $\bar p$ è lineare nella
+  frazione di contenzione con pendenza $q - r$.
+- Una beta-binomiale mean/variance-matched è stata scartata: $Y \mid X$ è
+  sotto-dispersa (Poisson-binomiale, rapporto varianze 0.99–1.00 sui dati)
+  mentre la beta-binomiale è sempre sovra-dispersa.
+
+**Validazione** (M7, stessi dati e prior del modello esatto): q = 0.0527 vs
+0.0532 esatto, r = 0.104 vs 0.103 — differenze entro il rumore Monte Carlo;
+tempo di campionamento da 4.7 h a 28 min (~10×), diagnostica pulita
+(0 divergenze, rhat ≈ 1).
+
+**Nota sui Bayes factor**: sono confrontabili solo tra modelli con la stessa
+likelihood — i BF dei modelli 1–6 (likelihood esatta) non sono confrontabili
+con quelli dei modelli 7–9 (collassata).
+
+Un tentativo alternativo di data augmentation in NIMBLE (NUTS-within-Gibbs
+sul conteggio latente della cella congiunta) è fallito per mixing
+catastrofico del sampler sui ~5000 latenti discreti (ESS ≈ 20, catena
+intrappolata lontano dal modo corretto, pur essendo il modello
+algebricamente equivalente).
+
 ## Modello 7: slope temporale per ente
 
 Estendiamo il Modello 4 lasciando che ogni ente abbia la propria slope
@@ -957,49 +996,722 @@ fit_slopes$diagnostic_summary()
 compute_fit(fit_slopes, stan_data)
 ```
 
-### Bayes Factor vs Modello 4
+### Bayes Factor
 
-**Nota:** M7 aggiunge J=36 parametri $\alpha_j$ rispetto al singolo $\alpha$
-del M4 — il BF penalizza questa complessità; un BF > 1 indica che le slope
-ente-specifiche sono giustificate dai dati nonostante il costo parametrico.
+**Nota:** con il passaggio alla likelihood collassata, il BF di M7 contro i
+modelli 1–6 (likelihood esatta) **non è più confrontabile** — le verosimiglianze
+marginali sono su scale diverse. M7 diventa la **nuova baseline** per i
+confronti tra modelli collassati (M8, M9). Il bridge sampling di M7
+(`bs_slopes`, calcolato nel chunk di fit) serve come denominatore comune.
+
+## Modello 8: trend quadratico per ente
+
+Estendiamo il Modello 7 (slope lineare per ente) permettendo anche un
+termine quadratico specifico per ente, così ogni ente può avere un
+andamento della contenzione che curva nel tempo (es. sale poi si
+stabilizza, o scende poi rimbalza) in modo indipendente dagli altri:
+
+$
+\text{logit}(p_{ij}) = \beta_j + \alpha_j \cdot t_i + \gamma_j \cdot t2_i
+$
+
+- $\beta_j$: intercetta per ente
+- $\alpha_j$: slope lineare per ente
+- $\gamma_j$: coefficiente quadratico per ente
+- $t_i$: z-score (stessa standardizzazione)
+- $t2_i$: termine quadratico **ortogonalizzato** rispetto a $1$ e $t$
+  (residui della regressione di $t^2$ su $t$). Con $t$ in z-score, $t^2$ è
+  fortemente correlato con $t$ e con l'intercetta dentro ciascun ente, il che
+  allunga la posterior e rallenta NUTS; l'ortogonalizzazione decorrela
+  $\gamma_j$ da $\beta_j, \alpha_j$ e migliora sensibilmente la geometria.
+
+**Prior:** $\beta_j, \alpha_j, \gamma_j \sim \text{Normal}(0, 10)$ — tutti con `target += normal_lpdf(...)` esplicito, per coerenza con gli altri modelli. Poiché $t2$ è ortogonalizzato e standardizzato (sd 1), il prior su $\gamma_j$ è sulla stessa scala di quello su $\alpha_j$. Nota: se il campionamento risulta lento (divergenze, saturazione del treedepth), la leva è restringere il prior di $\gamma_j$ — con prior piatti sui 36 parametri aggiuntivi la posteriore può essere mal condizionata, e il paradosso di Lindley penalizza comunque M8 nel BF.
+
+### Preparazione dati
 
 ```{r}
-#| label: bf-7-vs-4
-# bs_slopes e bs_facility_trend già calcolati nei rispettivi chunk di fit
-bf_7_vs_4 <- bf(bs_slopes, bs_facility_trend)
-print(bf_7_vs_4)
+#| label: prep-data-quadratic
+# Ortogonalizzazione di t^2 rispetto a 1 e t (Gram-Schmidt via regressione).
+# ATTENZIONE: va calcolata sulla scala Z-SCORE (quella usata dal modello),
+# non su t_all grezzo (anni) — altrimenti t2 ~ 2021^2 e i logit esplodono.
+tz_all <- with(
+  stan_data_facility_trend,
+  c(t_both, t_x_only, t_y_only)
+)
+orth_t2 <- lm(I(tz_all^2) ~ tz_all)
+# Standardizzazione: sd dei residui sul POOL (identica per i tre gruppi),
+# così t2 ha sd 1 come t e il prior su gamma_j è sulla stessa scala di alpha_j
+t2_sd <- sd(residuals(orth_t2))
+mk_t2 <- function(t) {
+  (t^2 - predict(orth_t2, newdata = data.frame(tz_all = t))) / t2_sd
+}
+
+stan_data_facility_quad <- c(
+  stan_data_facility_trend,
+  list(
+    t2_both = mk_t2(stan_data_facility_trend$t_both),
+    t2_x_only = mk_t2(stan_data_facility_trend$t_x_only),
+    t2_y_only = mk_t2(stan_data_facility_trend$t_y_only)
+  )
+)
+
+# Controllo sanità: t2 deve avere sd ~1 sul pool e range O(1)
+sapply(
+  stan_data_facility_quad[c("t2_both", "t2_x_only", "t2_y_only")],
+  function(v) c(min = min(v), max = max(v), sd = sd(v))
+)
 ```
 
-## Confronto modelli (Bayes Factor)
-
-Utilizziamo `bridgesampling` per stimare la verosimiglianza marginale di
-ciascun modello e calcolare i Bayes factor.
+### Fit del modello
 
 ```{r}
-#| label: bayes-factors-m1-m3
-# Tutti gli oggetti bridge sono già calcolati nei rispettivi chunk di fit
-bf_trend_vs_base    <- bf(bs_trend,    bs_base)
-bf_facility_vs_base <- bf(bs_facility, bs_base)
-
-cat("=== BF Trend vs Base ===\n")
-print(bf_trend_vs_base)
-cat("\n=== BF Facility vs Base ===\n")
-print(bf_facility_vs_base)
+#| label: compile-model-8
+mod_quad_slopes <- cmdstan_model(
+  here::here(
+    "inst/stan/bivariate_binomial_type2_facility_quadratic_slopes.stan"
+  ),
+  force = TRUE
+)
 ```
+
+```{r}
+#| label: fit-model-8
+# Usa stan_data_facility_quad — M7 + termine quadratico ortogonalizzato
+fit_quad_slopes <- mod_quad_slopes$sample(
+  data = stan_data_facility_quad,
+  seed = 635887313,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(817717701)
+bs_quad_slopes <- bridge_sampler(fit_quad_slopes, silent = TRUE)
+cat("log marginal likelihood M8:", bs_quad_slopes$logml, "\n")
+write_rds(
+  list(fit = fit_quad_slopes, bridge = bs_quad_slopes),
+  here::here("inst/extdata/fit_type2_facility_quadratic_slopes.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-8
+fit_quad_slopes$summary(variables = c("q", "r", "delta_qr", "rr"))
+fit_quad_slopes$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-8
+compute_fit(fit_quad_slopes, stan_data)
+```
+
+### Bayes Factor vs Modello 7
+
+**Nota:** M8 aggiunge J=36 parametri $\gamma_j$ rispetto a M7 — il BF
+penalizza questa complessità aggiuntiva; un BF > 1 indica che la curvatura
+ente-specifica è giustificata dai dati nonostante il costo parametrico.
+
+```{r}
+#| label: bf-8-vs-7
+# bs_quad_slopes e bs_slopes già calcolati nei rispettivi chunk di fit
+bf_8_vs_7 <- bf(bs_quad_slopes, bs_slopes, log = TRUE)
+print(bf_8_vs_7$bf / log(10))
+```
+
+## Modello 9: intercetta e slope per coppia ente/settore
+
+Manteniamo un modello lineare nel tempo (come M7), ma spostiamo la
+granularità dell'intercetta *e* della slope dal livello ente al livello
+della coppia (ente, id_settore) — l'analogo lineare di M6, ma con slope
+specifica per coppia invece che comune:
+
+$
+\text{logit}(p_k) = \beta_k + \alpha_k \cdot t_i
+$
+
+- $\beta_k$: intercetta per coppia ente×settore ($K$ coppie uniche)
+- $\alpha_k$: slope temporale per coppia ente×settore
+- $t_i$: z-score (stessa standardizzazione)
+
+**Prior:** $\beta_k, \alpha_k \sim \text{Normal}(0, 10)$ — tutti con `target += normal_lpdf(...)` esplicito.
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-9
+mod_fac_sec_slopes <- cmdstan_model(
+  here::here("inst/stan/bivariate_binomial_type2_facility_sector_slopes.stan"),
+  force = TRUE
+)
+```
+
+```{r}
+#| label: fit-model-9
+# Riusa stan_data_fac_sec — stessa struttura dati del M6 (K coppie ente×settore)
+fit_fac_sec_slopes <- mod_fac_sec_slopes$sample(
+  data = stan_data_fac_sec,
+  seed = 239054855,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(457967843)
+bs_fac_sec_slopes <- bridge_sampler(fit_fac_sec_slopes, silent = TRUE)
+cat("log marginal likelihood M9:", bs_fac_sec_slopes$logml, "\n")
+write_rds(
+  list(fit = fit_fac_sec_slopes, bridge = bs_fac_sec_slopes),
+  here::here("inst/extdata/fit_type2_facility_sector_slopes.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-9
+fit_fac_sec_slopes$summary(variables = c("q", "r", "delta_qr", "rr"))
+fit_fac_sec_slopes$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-9
+compute_fit(fit_fac_sec_slopes, stan_data)
+```
+
+### Bayes Factor vs Modello 7
+
+**Nota:** M9 ha K > 36 coppie di parametri $(\beta_k, \alpha_k)$ contro i
+J=36 $(\beta_j, \alpha_j)$ di M7 — il BF penalizza la complessità
+aggiuntiva; un BF > 1 indica che la granularità ente×settore è
+giustificata anche per la slope temporale.
+
+```{r}
+#| label: bf-9-vs-7
+# bs_fac_sec_slopes e bs_slopes già calcolati nei rispettivi chunk di fit
+bf_9_vs_7 <- bf(bs_fac_sec_slopes, bs_slopes, log = TRUE)
+print(bf_9_vs_7$bf / log(10))
+```
+
+## Modello 10: q e r gerarchici per coppia ente/settore
+
+M9 è il nuovo modello di riferimento (concordanza molto buona su X), ma con
+$q$ e $r$ globali la variabilità di Y tra coppie ente×settore non può essere
+colta: gli intervalli previsivi su Y sono strutturalmente troppo stretti.
+Introduciamo quindi un livello gerarchico sui tassi di caduta:
+
+$
+q_k \sim \text{Beta}(a_q, b_q), \qquad r_k \sim \text{Beta}(a_r, b_r)
+$
+
+$
+a_q, b_q, a_r, b_r \sim \text{Exponential}(1) \quad \text{(indipendenti)}
+$
+
+- $q_k$: probabilità di caduta se contenuto, per coppia $k$
+- $r_k$: probabilità di caduta se non contenuto, per coppia $k$
+- Iperpriori esponenziali con $\lambda = 1$, indipendenti tra $q$ e $r$
+
+**Coerenza con il prior uniforme precedente:** approssimata, non esatta —
+Beta(1, 1) = Uniforme è il punto centrale dell'iperprior Exp(1), ma il prior
+marginale di $q_k$ integrando su $(a_q, b_q)$ non è esattamente uniforme.
+
+**Nota geometrica:** Beta con parametri stimati può avere $a < 1$ (densità
+divergente al bordo 0) e $q_k$ è piccolo (~5%) — possibili divergenze vicino
+al bordo; per questo il fit usa `adapt_delta = 0.95`.
+
+**Prior:** $\beta_k, \alpha_k \sim \text{Normal}(0, 10)$ con `target += normal_lpdf(...)` esplicito; iperpriori con `target += exponential_lpdf(... | 1)` esplicito; gerarchia con `target += beta_lpdf(...)` esplicito — tutto normalizzato per il BF.
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-10
+mod_hier_qr <- cmdstan_model(
+  here::here(
+    "inst/stan/bivariate_binomial_type2_facility_sector_slopes_hier_qr.stan"
+  ),
+  force = TRUE
+)
+```
+
+```{r}
+#| label: fit-model-10
+# Riusa stan_data_fac_sec — stessa struttura dati del M9
+fit_hier_qr <- mod_hier_qr$sample(
+  data = stan_data_fac_sec,
+  seed = 123768331,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(429611497)
+bs_hier_qr <- bridge_sampler(fit_hier_qr, silent = TRUE)
+cat("log marginal likelihood M10:", bs_hier_qr$logml, "\n")
+write_rds(
+  list(fit = fit_hier_qr, bridge = bs_hier_qr),
+  here::here("inst/extdata/fit_type2_facility_sector_slopes_hier_qr.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-10
+fit_hier_qr$summary(
+  variables = c("q_bar", "r_bar", "delta_qr", "rr", "a_q", "b_q", "a_r", "b_r")
+)
+fit_hier_qr$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-10
+compute_fit(fit_hier_qr, stan_data)
+```
+
+### Bayes Factor vs Modello 9
+
+**Nota:** M10 sostituisce i 2 parametri globali $(q, r)$ con $2K$ parametri
+gerarchici + 4 iperparametri. Il BF confronta modelli con la stessa
+likelihood collassata ed è quindi valido; la struttura gerarchica riduce il
+costo Occam rispetto a $2K$ parametri indipendenti perché i $q_k$ ($r_k$) sono
+parzialmente poolati verso una distribuzione comune stimata dai dati.
+
+```{r}
+#| label: bf-10-vs-9
+# bs_hier_qr e bs_fac_sec_slopes già calcolati nei rispettivi chunk di fit
+bf_10_vs_9 <- bf(bs_hier_qr, bs_fac_sec_slopes, log = TRUE)
+print(bf_10_vs_9$bf / log(10))
+```
+
+## Modello 11: M10 + trend quadratico per coppia ente/settore
+
+M10 cattura completamente la variabilità di Y grazie alla gerarchia su
+$q_k, r_k$. Resta da perfezionare il fit su X: estendiamo il trend di
+contenzione da lineare a quadratico per ciascuna coppia ente×settore:
+
+$
+\text{logit}(p_k) = \beta_k + \alpha_k \cdot t_i + \gamma_k \cdot t2_i
+$
+
+- $\gamma_k$: coefficiente quadratico per coppia ente×settore
+- $t2_i$: termine quadratico ortogonalizzato (Gram–Schmidt) e standardizzato,
+  identico a quello costruito per M8 — si riusa `mk_t2`
+
+**Prior:** $\beta_k, \alpha_k \sim \text{Normal}(0, 10)$; $\gamma_k \sim \text{Normal}(0, 5)$ — tutti con `target += normal_lpdf(...)` esplicito. Il prior di $\gamma_k$ è volutamente meno dispersivo dello standard del progetto: sulla scala standardizzata di $t2$ (sd 1), sd = 5 ammette comunque curvature molto ampie (±18 logit a 2 sd) ma esclude le regioni assurde che degradano la geometria di NUTS. La scelta è fatta a priori, prima del fit, e dichiarata qui — il BF vs M10 resta valido perché il prior è parte della definizione del modello. Gerarchia su $q_k, r_k$ invariata rispetto a M10.
+
+**Nota di complessità:** M11 ha $3K + 2K + 4 = 239$ parametri. Se il
+campionamento restasse lento anche con sd = 5 (divergenze, saturazione del
+treedepth), la leva successiva è restringere ulteriormente il prior di
+$\gamma_k$ — consapevoli che ciò cambierebbe il BF.
+
+### Preparazione dati
+
+```{r}
+#| label: prep-data-fac-sec-quad
+# t2 dipende solo da t: si riusa mk_t2 (ortogonalizzazione Gram–Schmidt
+# standardizzata, già costruita per M8) sui tempi di stan_data_fac_sec
+stan_data_fac_sec_quad <- c(
+  stan_data_fac_sec,
+  list(
+    t2_both = mk_t2(stan_data_fac_sec$t_both),
+    t2_x_only = mk_t2(stan_data_fac_sec$t_x_only),
+    t2_y_only = mk_t2(stan_data_fac_sec$t_y_only)
+  )
+)
+
+# Controllo sanità: range O(1)
+sapply(
+  stan_data_fac_sec_quad[c("t2_both", "t2_x_only", "t2_y_only")],
+  range
+)
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-11
+mod_hier_qr_quad <- cmdstan_model(
+  here::here(
+    "inst/stan/bivariate_binomial_type2_fac_sec_slopes_hier_qr_quad.stan"
+  ),
+  force = TRUE
+)
+```
+
+```{r}
+#| label: fit-model-11
+fit_hier_qr_quad <- mod_hier_qr_quad$sample(
+  data = stan_data_fac_sec_quad,
+  seed = 220460355,
+  chains = 4,
+  parallel_chains = 4
+)
+
+set.seed(88558276)
+bs_hier_qr_quad <- bridge_sampler(fit_hier_qr_quad, silent = TRUE)
+cat("log marginal likelihood M11:", bs_hier_qr_quad$logml, "\n")
+write_rds(
+  list(fit = fit_hier_qr_quad, bridge = bs_hier_qr_quad),
+  here::here("inst/extdata/fit_type2_fac_sec_slopes_hier_qr_quad.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-11
+fit_hier_qr_quad$summary(
+  variables = c("q_bar", "r_bar", "delta_qr", "rr", "a_q", "b_q", "a_r", "b_r")
+)
+fit_hier_qr_quad$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-11
+compute_fit(fit_hier_qr_quad, stan_data)
+```
+
+### Bayes Factor vs Modello 10
+
+**Nota:** M11 aggiunge $K = 47$ parametri $\gamma_k$ rispetto a M10. Il BF è
+valido (stessa likelihood collassata, stesse convenzioni di prior) e
+penalizza automaticamente la complessità: un BF > 1 indica che la curvatura
+specifica per coppia è giustificata dai dati.
+
+```{r}
+#| label: bf-11-vs-10
+# bs_hier_qr_quad e bs_hier_qr già calcolati nei rispettivi chunk di fit
+bf_11_vs_10 <- bf(bs_hier_qr_quad, bs_hier_qr, log = TRUE)
+print(bf_11_vs_10$bf / log(10))
+```
+
+## Modello 12: modello congiunto multi-outcome (multinomiale)
+
+Il modello definitivo raccoglie **tutti** gli indicatori in un'unica
+likelihood. Gli indicatori sono **annidati** ($1.5 \subset 1.3 \subset 1.1$):
+1.3 conta le cadute con esito qualsiasi (minore + maggiore) e 1.5 quelle con
+esito maggiore. Per ogni osservazione costruiamo quindi il vettore
+multinomiale sui residenti (denominatore $n_y$ = `d_1.1`) per differenze
+successive:
+
+$
+c = (\underbrace{n_{1.1} - n_{1.3}}_{\text{caduta senza esito}},\;
+\underbrace{n_{1.3} - n_{1.5}}_{\text{esito minore}},\;
+\underbrace{n_{1.5}}_{\text{esito maggiore}},\;
+\underbrace{n_y - n_{1.1}}_{\text{non caduto}})
+$
+
+Il modello è la **fattorizzazione esatta** della multinomiale a 4 celle in
+due livelli (proprietà standard della multinomiale, nessuna approssimazione):
+
+**Livello 1 — caduta sì/no** (identico a M11, che campiona perfettamente):
+
+$
+Y \sim \text{Bin}(n_y, p_{\text{fall}}), \qquad
+p_{\text{fall}} = \frac{X}{n_x}\, q_{\text{fall},k} + \left(1 - \frac{X}{n_x}\right) r_{\text{fall},k}
+$
+
+**Livello 2 — esito dato la caduta** (multinomiale a 3 celle sui caduti,
+coerente con i denominatori di 1.3/1.5 che sono le cadute avvenute):
+
+$
+(c_1, c_2, c_3) \mid Y \sim \text{Multinomial}(Y, \bar s_k), \qquad
+\bar s_k = \frac{\frac{X}{n_x} q_{\text{fall},k}\, s_{q,k} + \left(1 - \frac{X}{n_x}\right) r_{\text{fall},k}\, s_{r,k}}{p_{\text{fall}}}
+$
+
+**Gerarchia:** Beta (iperpriori $\text{Exp}(1)$) per le probabilità di caduta,
+come in M10/M11; **logistica-normale** per le quote di esito — nessun
+simplesso, tutti i parametri nascono non vincolati:
+
+$
+q_{\text{fall},k} \sim \text{Beta}(a_q, b_q), \quad
+r_{\text{fall},k} \sim \text{Beta}(a_r, b_r)
+$
+
+$
+s_{q,k} = \text{softmax}(\eta_{q,k}), \quad \eta_{q,k} \sim \text{Normal}(\mu_q, \sigma_q);
+\qquad
+s_{r,k} = \text{softmax}(\eta_{r,k}), \quad \eta_{r,k} \sim \text{Normal}(\mu_r, \sigma_r)
+$
+
+con $\mu \sim \text{Normal}(0, 2)$, $\sigma \sim \text{Exp}(1)$. La versione
+con Dirichlet su simplesso aveva geometria patologica al bordo (100% di
+saturazione del max treedepth anche dopo la fattorizzazione); la
+parametrizzazione softmax elimina il problema alla radice. La gerarchia su
+$\eta$ è implementata in forma **non centrata**
+($\eta_k = \mu + \sigma \odot \eta_k^{raw}$, $\eta_k^{raw} \sim \text{Normal}(0,1)$):
+la forma centrata produceva un imbuto gerarchico (E-BFMI 0.16, treedepth
+saturato al 100%).
+
+**Perché questa forma:** la versione a simplesso singolo a 4 celle (con la
+cella "non caduto" al ~90%) aveva geometria patologica vicino al bordo —
+oltre 36 s/iterazione. La fattorizzazione sposta la cella dominante nel
+livello binomiale (struttura Beta di M10/M11, ben condizionata) e riduce il
+simplesso alle 3 celle di esito sui soli caduti. Non servendo più Bayes
+factor per M12, il modello usa la notazione `~` (le costanti di
+normalizzazione comunque non influiscono sulla velocità: dipendono solo dai
+dati e hanno gradiente nullo).
+
+La parte di contenzione è invariata rispetto a M11
+($\text{logit}(p_k) = \beta_k + \alpha_k t + \gamma_k t2$).
+
+**Vantaggio rispetto a outcome separati:** le celle restano disgiunte ed
+esaustive per costruzione — nessuna assunzione di indipendenza condizionata
+tra gli outcome, che condividono gli stessi residenti.
+
+**Gruppi di osservazioni** (riconciliati con l'analisi precedente):
+
+| Gruppo | n | Contributo |
+|---|---|---|
+| Contenzione (tutti i record con 2.1) | 2766 | $X \sim \text{Bin}(n_x, p_k)$ |
+| + outcome completi validi | 2174 | multinomiale con $\bar p_k$ |
+| + solo 1.1 o violazioni di annidamento (35) | 350 | binomiale sul totale cadute |
+| outcome completi validi senza contenzione | 349 | multinomiale marginale (mix con $p_k$) |
+| solo 1.1 senza contenzione (incluse 24 violazioni) | 70 | binomiale marginale |
+
+Le violazioni di annidamento ($n_{1.3} > n_{1.1}$ o $n_{1.5} > n_{1.3}$,
+59 record) sono probabili errori di data entry e ricadono nel gruppo
+binomiale, che usa solo il totale cadute.
+
+**Attenzione — niente Bayes factor vs M11:** M12 usa *più dati* (1.3 e 1.5),
+quindi la sua verosimiglianza marginale non è confrontabile con quella dei
+modelli precedenti. Non eseguiamo bridge sampling per M12.
+
+### Preparazione dati
+
+```{r}
+#| label: prep-data-multinomial
+# Pivot a 4 indicatori
+multi_wide <- restraints_falls |>
+  mutate(ind = str_sub(indicatore, 1, 3)) |>
+  select(anno, mese, ente, id_settore, ind, n, d) |>
+  pivot_wider(names_from = ind, values_from = c(n, d), names_sep = "_")
+
+mw <- multi_wide |>
+  mutate(
+    has_x = !is.na(n_2.1) & !is.na(d_2.1),
+    has_11 = !is.na(n_1.1) & !is.na(d_1.1),
+    complete = has_11 &
+      !is.na(n_1.3) &
+      !is.na(n_1.5) &
+      (n_1.3 <= n_1.1) &
+      (n_1.5 <= n_1.3), # annidamento 1.5 ⊆ 1.3 ⊆ 1.1; esclude violazioni
+    t = (anno + (mese - 0.5) / 12 - t_mean) / t_sd,
+    k = unname(pair_map[paste(ente, id_settore, sep = "_")])
+  )
+mw$t2 <- mk_t2(mw$t)
+
+# Allineamento all'ordine ORIGINALE di both/x_only/y_only via join sulle
+# chiavi, per compatibilità con compute_fit (stan_data esistente)
+keys <- c("anno", "mese", "ente", "id_settore")
+both_m <- both |> select(all_of(keys)) |> left_join(mw, by = keys)
+x_only_m <- x_only |> select(all_of(keys)) |> left_join(mw, by = keys)
+y_only_m <- y_only |> select(all_of(keys)) |> left_join(mw, by = keys)
+
+# Sanity check: devono riprodurre esattamente i gruppi originali
+stopifnot(
+  identical(as.integer(both_m$n_2.1), stan_data$x_both),
+  identical(as.integer(both_m$n_1.1), stan_data$y_both),
+  identical(as.integer(x_only_m$n_2.1), stan_data$x_only),
+  identical(as.integer(y_only_m$n_1.1), stan_data$y_only)
+)
+
+# Celle multinomiali per indicatori ANNIDATI (1.5 ⊆ 1.3 ⊆ 1.1):
+# (caduta senza esito, esito minore, esito maggiore, non caduto)
+mk_cells <- function(df) {
+  cbind(
+    as.integer(df$n_1.1 - df$n_1.3),
+    as.integer(df$n_1.3 - df$n_1.5),
+    as.integer(df$n_1.5),
+    as.integer(df$d_1.1 - df$n_1.1)
+  )
+}
+
+restr_m <- bind_rows(both_m, x_only_m) # both prima, poi x_only
+both_multi <- both_m |> filter(complete)
+both_bin <- both_m |> filter(!complete)
+marg_multi <- y_only_m |> filter(complete)
+marg_bin <- y_only_m |> filter(!complete)
+
+stan_data_multi <- list(
+  K = K,
+  N_both = nrow(both_m),
+  N_x_only = nrow(x_only_m),
+  N_y_only = nrow(y_only_m),
+  # blocco contenzione
+  N_x = nrow(restr_m),
+  n_x = as.integer(restr_m$d_2.1),
+  x = as.integer(restr_m$n_2.1),
+  fs_x = restr_m$k,
+  t_x = restr_m$t,
+  t2_x = restr_m$t2,
+  # both multinomiale
+  N_multi = nrow(both_multi),
+  n_y_multi = as.integer(both_multi$d_1.1),
+  x_multi = as.integer(both_multi$n_2.1),
+  nx_multi = as.integer(both_multi$d_2.1),
+  c_multi = mk_cells(both_multi),
+  fs_multi = both_multi$k,
+  pos_multi = which(both_m$complete),
+  # both binomiale
+  N_bin = nrow(both_bin),
+  n_y_bin = as.integer(both_bin$d_1.1),
+  y_bin = as.integer(both_bin$n_1.1),
+  x_bin = as.integer(both_bin$n_2.1),
+  nx_bin = as.integer(both_bin$d_2.1),
+  fs_bin = both_bin$k,
+  pos_bin = which(!both_m$complete),
+  # marginale multinomiale
+  N_mm = nrow(marg_multi),
+  n_y_mm = as.integer(marg_multi$d_1.1),
+  c_mm = mk_cells(marg_multi),
+  fs_mm = marg_multi$k,
+  t_mm = marg_multi$t,
+  t2_mm = marg_multi$t2,
+  pos_mm = which(y_only_m$complete),
+  # marginale binomiale
+  N_bm = nrow(marg_bin),
+  n_y_bm = as.integer(marg_bin$d_1.1),
+  y_bm = as.integer(marg_bin$n_1.1),
+  fs_bm = marg_bin$k,
+  t_bm = marg_bin$t,
+  t2_bm = marg_bin$t2,
+  pos_bm = which(!y_only_m$complete)
+)
+
+cat(
+  "Gruppi: multi",
+  nrow(both_multi),
+  "| bin",
+  nrow(both_bin),
+  "| mm",
+  nrow(marg_multi),
+  "| bm",
+  nrow(marg_bin),
+  "\n"
+)
+```
+
+### Fit del modello
+
+```{r}
+#| label: compile-model-12
+mod_multi <- cmdstan_model(
+  here::here("inst/stan/restraint_multinomial_fac_sec_quad.stan"),
+  force = TRUE
+)
+```
+
+```{r}
+#| label: fit-model-12
+# Inizializzazione dalle medie posteriori di M11: i coefficienti del trend
+# partono dal fit precedente; i simplessi q/r sono ricostruiti dalla
+# probabilità di caduta di M11 usando la composizione globale delle celle
+# di esito osservata nei dati. Evita all'adattamento di attraversare
+# regioni patologiche dello spazio.
+m11_means <- fit_hier_qr_quad$summary(
+  variables = c("beta", "alpha", "gamma", "q", "r")
+)
+beta0 <- m11_means$mean[grepl("^beta", m11_means$variable)]
+alpha0 <- m11_means$mean[grepl("^alpha", m11_means$variable)]
+gamma0 <- m11_means$mean[grepl("^gamma", m11_means$variable)]
+q11 <- m11_means$mean[grepl("^q\\[", m11_means$variable)]
+r11 <- m11_means$mean[grepl("^r\\[", m11_means$variable)]
+
+# Composizione globale delle celle di esito tra i caduti
+cell_tot <- colSums(rbind(stan_data_multi$c_multi, stan_data_multi$c_mm))
+share <- cell_tot[1:3] / sum(cell_tot[1:3])
+
+init_multi <- function() {
+  list(
+    beta = beta0 + rnorm(K, 0, 0.1),
+    alpha = alpha0 + rnorm(K, 0, 0.05),
+    gamma = gamma0 + rnorm(K, 0, 0.05),
+    q_fall = q11,
+    r_fall = r11,
+    eta_q_raw = matrix(rnorm(K * 3, 0, 0.1), nrow = K, ncol = 3),
+    eta_r_raw = matrix(rnorm(K * 3, 0, 0.1), nrow = K, ncol = 3),
+    a_q = 1,
+    b_q = (1 - mean(q11)) / mean(q11), # media Beta ≈ mean(q11)
+    a_r = 1,
+    b_r = (1 - mean(r11)) / mean(r11),
+    mu_q = log(share),
+    sigma_q = rep(0.5, 3),
+    mu_r = log(share),
+    sigma_r = rep(0.5, 3)
+  )
+}
+
+fit_multi <- mod_multi$sample(
+  data = stan_data_multi,
+  seed = 919214260,
+  chains = 4,
+  parallel_chains = 4,
+  adapt_delta = 0.95,
+  init = init_multi
+)
+
+write_rds(
+  list(fit = fit_multi),
+  here::here("inst/extdata/fit_multinomial_fac_sec_quad.rds")
+)
+```
+
+### Diagnostica e PPC
+
+```{r}
+#| label: diagnostics-12
+fit_multi$summary(
+  variables = c(
+    "q_bar",
+    "r_bar",
+    "fall_q",
+    "fall_r",
+    "delta_fall",
+    "rr_fall",
+    "delta_major",
+    "rr_major",
+    "a_q",
+    "b_q",
+    "a_r",
+    "b_r",
+    "mu_q",
+    "sigma_q",
+    "mu_r",
+    "sigma_r"
+  )
+)
+fit_multi$diagnostic_summary()
+```
+
+```{r}
+#| label: ppc-12
+# Compatibile con compute_fit: i generated quantities riproducono l'ordine
+# originale di stan_data (x_rep, y_rep, x_only_rep, y_only_rep)
+compute_fit(fit_multi, stan_data)
+```
+
 
 ### Riepilogo completo
 
-| Modello | Conc. X | Conc. Y | fit_x | fit_y | BF vs M4 |
-|---|---|---|---|---|---|
-| 1 — Base (p globale) | 36.8% | 89.7% | — | — | — |
-| 2 — Trend su p | 36.8% | 89.5% | — | — | — |
-| 3 — p per ente | 83.5% | 90.7% | −106 | −18.0 | — |
-| **4 — p per ente + trend** | **83.6%** | **91.3%** | **−105** | **−13.1** | *baseline* |
-| 5 — M4 + trend quadratico | | | | | |
-| 6 — Intercette ente×settore | | | | | |
-| 7 — Slope per ente | | | | | |
+| Modello | Likelihood | Conc. X | Conc. Y | fit_x | fit_y | BF |
+|---|---|---|---|---|---|---|
+| 1 — Base (p globale) | esatta | 36.8% | 89.7% | — | — | — |
+| 2 — Trend su p | esatta | 36.8% | 89.5% | — | — | — |
+| 3 — p per ente | esatta | 83.5% | 90.7% | −106 | −18.0 | — |
+| 4 — p per ente + trend | esatta | 83.6% | 91.3% | −105 | −13.1 | baseline (1–6) |
+| 5 — M4 + trend quadratico | esatta | | | | | |
+| 6 — Intercette ente×settore | esatta | | | | | |
+| **7 — Slope per ente** | **collassata** | | | | | baseline (7–9) |
+| 8 — Trend quadratico per ente | collassata | | | | | vs M7 |
+| **9 — Intercetta+slope ente×settore** | **collassata** | | | | | **reference attuale** |
+| 10 — M9 + q, r gerarchici | collassata | | | | | vs M9 |
+| 11 — M10 + trend quad. per coppia | collassata | | | | | vs M10 |
+| **12 — Multi-outcome (multinomiale)** | **collassata** | | | | | *non confrontabile (dati estesi)* |
 
-La concordanza è calcolata aggregando tutti i gruppi (both + x_only + y_only).
+La concordanza è calcolata aggregando tutti i gruppi (both + x_only + y_only)
+ed è confrontabile tra tutti i modelli. I Bayes factor invece sono
+confrontabili **solo all'interno dello stesso gruppo di likelihood**
+(1–6 esatta, 7–9 collassata).
 
 - fit_max ≈ 2.0 (concordanza esattamente al 95% con n_x=2766, n_y=2943)
 - fit = 0 → concordanza ~95% (obiettivo minimo)
@@ -1008,6 +1720,407 @@ La concordanza è calcolata aggregando tutti i gruppi (both + x_only + y_only).
 Le stime di $q$ e $r$ sono stabili tra tutti i modelli ($\delta \approx -0.06$,
 $RR \approx 0.43$), indicando che il risultato principale non dipende dalla
 specificazione di $p$.
+
+## Analisi modello finale
+
+
+```{r}
+
+# Estimandi di popolazione (iperparametri della gerarchia Beta)
+# - delta: E[q_new - r_new | dati] = differenza delle medie per-draw
+#   (forma Rao-Blackwell esatta, varianza inferiore alla simulazione)
+# - ratio: la media di (q_new - r_new)/r_new NON ESISTE — la posterior di a_r
+#   ha sempre massa sotto 1 (strutturale: l'iperprior Exp(1) include (0,1)
+#   qualsiasi siano i dati) e lì E[1/r] diverge. Si usa la MEDIANA della
+#   distribuzione predittiva del ratio per una nuova coppia.
+set.seed(636936637)
+
+
+parametri_caduta <- fit_multi$draws(
+  c("a_q", "b_q", "a_r", "b_r"),
+  format = "df"
+) |>
+  as_tibble() |>
+  clean_names() |>
+  mutate(
+    pred_q = a_q / (a_q + b_q),
+    pred_r = a_r / (a_r + b_r),
+    delta = pred_q - pred_r,
+    q_new = rbeta(n(), a_q, b_q),
+    r_new = rbeta(n(), a_r, b_r),
+    delta_new = q_new - r_new,
+    ratio_new = (q_new - r_new) / r_new # riassumere con mediana + HDI, MAI media
+  )
+```
+
+
+```{r}
+
+parametri_caduta |>
+  ggplot(aes(delta_new)) +
+  geom_histogram(bins = 63) +
+  geom_vline(
+    data = \(x) {
+      x |>
+        summarise(delta = mean(delta))
+    },
+    aes(xintercept = delta),
+    color = "#3366FF",
+    linewidth = 1
+  )
+```
+
+```{r}
+
+parametri_caduta |>
+  pull(delta) |>
+  acf()
+```
+
+```{r}
+
+parametri_caduta |>
+  pull(delta_new) |>
+  acf()
+```
+
+```{r}
+
+parametri_caduta |>
+  pull(ratio_new) |>
+  acf()
+```
+
+```{r}
+
+parametri_caduta |>
+  summarise(
+    p = mean(delta_new < 0),
+  ) |>
+  mutate(log_bf = log10(p / (1 - p)))
+```
+
+C'è scarsa evidenza del fatto che le contenzioni riducano le cadute.
+
+```{r}
+
+parametri_caduta |>
+  filter(ratio_new < 21) |>
+  ggplot(aes(ratio_new)) +
+  geom_histogram(bins = 63) +
+  geom_vline(
+    data = \(x) {
+      x |>
+        summarise(ratio = median(ratio_new))
+    },
+    aes(xintercept = ratio),
+    color = "#3366FF",
+    linewidth = 1
+  )
+```
+
+```{r}
+
+parametri_caduta |>
+  summarise(
+    across(c(delta_new, ratio_new), hdi)
+  )
+```
+
+```{r}
+
+parametri_caduta |>
+  summarise(
+    delta = mean(delta),
+    ratio = median(ratio_new)
+  )
+```
+
+### Delta per coppia ente×settore
+
+Stima di $\delta_k = q_{\text{fall},k} - r_{\text{fall},k}$ per ciascuna delle
+47 coppie, con HDI al 95% (`bayestestR::hdi`) e probabilità a posteriori che
+il delta sia negativo. La tabella mostra che l'effetto non è piccolo ovunque,
+ma cambia segno tra sottoinsiemi di strutture: ~15 coppie con beneficio
+credibile, ~8 con danno credibile, ~24 incerte.
+
+```{r}
+#| label: delta-per-coppia
+# Etichette delle 47 coppie (stesso ordinamento alfabetico degli indici Stan)
+pairs <- restraints_falls |>
+  filter(
+    indicatore %in%
+      c(
+        "2.1 Persone soggette a contenzione fisica",
+        "1.1 Residenti caduti nel periodo di riferimento"
+      ),
+    !is.na(n),
+    !is.na(d)
+  ) |>
+  mutate(pair = paste(ente, id_settore, sep = "_")) |>
+  distinct(pair) |>
+  pull(pair) |>
+  sort()
+stopifnot(length(pairs) == 47)
+
+# Delta per coppia: array iterazioni × catene × coppia
+delta <- fit_multi$draws("q_fall", format = "array") -
+  fit_multi$draws("r_fall", format = "array")
+
+# Una sola chiamata a hdi() per coppia: restituisce entrambi i limiti
+tab_delta <- apply(delta, 3, function(v) {
+  h <- bayestestR::hdi(v)
+  c(
+    delta_mean = mean(v),
+    hdi_lo = h$CI_low,
+    hdi_hi = h$CI_high,
+    p_delta_neg = mean(v < 0)
+  )
+}) |>
+  t() |>
+  as_tibble() |>
+  mutate(coppia = pairs, .before = 1) |>
+  arrange(delta_mean) |>
+  mutate(across(-coppia, ~ round(.x, 3)))
+```
+
+```{r}
+
+tab_delta |>
+  mutate(evidence = log10(p_delta_neg / (1 - p_delta_neg))) |>
+  ggplot(aes(delta_mean)) +
+  geom_histogram(bins = 7)
+```
+
+### PPC sugli indicatori di esito (1.3 e 1.5)
+
+La concordanza di `compute_fit` copre solo X e Y (cadute totali). Qui
+verifichiamo le celle di esito sul gruppo `multi` (2174 osservazioni con
+contenzione + outcome completi). Due accorgimenti chiave:
+
+- **Le marginali di una multinomiale sono binomiali** — niente simulazione
+  multinomiale: $n_{1.3} \sim \text{Bin}(n_y, p_{\text{fall}}(s_2+s_3))$ e
+  $n_{1.5} \sim \text{Bin}(n_y, p_{\text{fall}} s_3)$. Nella fattorizzazione
+  $p_{\text{fall}}$ si elide:
+  $p_{1.3} = f\, q_f (s_{q2}{+}s_{q3}) + (1-f)\, r_f (s_{r2}{+}s_{r3})$,
+  $p_{1.5} = f\, q_f s_{q3} + (1-f)\, r_f s_{r3}$, con $f = X/n_x$.
+- **Ordine delle colonne Stan**: `s_q[k,m]` è appiattito con $k$ che varia più
+  in fretta — la cella $m$ della coppia $k$ è la colonna $(m-1)K + k$.
+
+```{r}
+#| label: ppc-outcome-cells
+set.seed(4815)
+sub <- sample(4000, 800)
+
+# Dati del gruppo multi (da stan_data_multi)
+K <- stan_data_multi$K
+k <- stan_data_multi$fs_multi
+nx <- stan_data_multi$nx_multi
+frac <- ifelse(nx > 0, stan_data_multi$x_multi / nx, 0)
+n_y <- stan_data_multi$n_y_multi
+obs_13 <- stan_data_multi$c_multi[, 2] + stan_data_multi$c_multi[, 3] # minore+maggiore
+obs_15 <- stan_data_multi$c_multi[, 3] # maggiore
+
+# Draw: q_fall/r_fall (4000×K), s_q/s_r (4000×3K, ordine Stan: coppia veloce)
+qf <- fit_multi$draws("q_fall", format = "matrix")
+rf <- fit_multi$draws("r_fall", format = "matrix")
+sq <- matrix(fit_multi$draws("s_q", format = "array"), nrow = 4000)
+sr <- matrix(fit_multi$draws("s_r", format = "array"), nrow = 4000)
+
+# Sanity check: le celle di ogni coppia sommano a 1
+stopifnot(all(
+  abs(sq[1:50, 1] + sq[1:50, K + 1] + sq[1:50, 2 * K + 1] - 1) < 1e-6
+))
+
+# Matrici draw × obs
+qf_o <- qf[sub, k]
+rf_o <- rf[sub, k]
+sq2_o <- sq[sub, K + k]
+sq3_o <- sq[sub, 2 * K + k]
+sr2_o <- sr[sub, K + k]
+sr3_o <- sr[sub, 2 * K + k]
+
+p13 <- sweep(qf_o * (sq2_o + sq3_o), 2, frac, `*`) +
+  sweep(rf_o * (sr2_o + sr3_o), 2, 1 - frac, `*`)
+p15 <- sweep(qf_o * sq3_o, 2, frac, `*`) +
+  sweep(rf_o * sr3_o, 2, 1 - frac, `*`)
+
+# Simulazione binomiale vettorizzata (una chiamata per indicatore)
+n13_sim <- matrix(
+  rbinom(length(p13), rep(n_y, each = length(sub)), p13),
+  length(sub)
+)
+n15_sim <- matrix(
+  rbinom(length(p15), rep(n_y, each = length(sub)), p15),
+  length(sub)
+)
+
+# Concordanza + metrica fit (stessa formula di compute_fit)
+fit_metric <- function(obs, sims) {
+  lo <- apply(sims, 2, quantile, 0.025)
+  hi <- apply(sims, 2, quantile, 0.975)
+  k_in <- sum(obs >= lo & obs <= hi)
+  n <- length(obs)
+  list(
+    concordanza = round(k_in / n, 4),
+    fit = round(
+      (log(n + 1) +
+        lchoose(n, k_in) +
+        k_in * log(0.95) +
+        (n - k_in) * log(0.05)) /
+        log(10),
+      1
+    )
+  )
+}
+
+list(`1.3` = fit_metric(obs_13, n13_sim), `1.5` = fit_metric(obs_15, n15_sim))
+```
+
+**Esito:** 1.3 concordanza 97.6% (fit −6.2), 1.5 concordanza 99.8% (fit
+−38.2) — entrambe sopra il 95%: il modello **sovracopre**, in modo marcato
+sulle celle sparse di esito maggiore. Direzione prudente e accettabile; un
+modello globale (non gerarchico) per le celle di esito avrebbe forse reso
+gli intervalli più stretti, ma non si rifitta per questo.
+
+### Analisi predittiva per tipologia di esito
+
+Estimando: probabilità **per residente** di (caduta ∧ esito), cioè
+$q_{\text{fall}} \cdot s_q[m]$ vs $r_{\text{fall}} \cdot s_r[m]$ — NON
+condizionata alla caduta. Risponde alla domanda pratica: "il numero totale
+di residenti che cadono e si fanno male diminuisce con la contenzione?".
+Distribuzione predittiva per una nuova coppia ente×settore.
+
+```{r}
+#| label: pred-outcome-cells
+# Iperparametri delle quote di esito (gerarchia logistica-normale)
+mu_q <- matrix(fit_multi$draws("mu_q", format = "array"), nrow = 4000)
+sigma_q <- matrix(fit_multi$draws("sigma_q", format = "array"), nrow = 4000)
+mu_r <- matrix(fit_multi$draws("mu_r", format = "array"), nrow = 4000)
+sigma_r <- matrix(fit_multi$draws("sigma_r", format = "array"), nrow = 4000)
+
+set.seed(636936637)
+softmax_rows <- function(x) {
+  e <- exp(x)
+  e / rowSums(e)
+}
+
+# Nuove quote di esito per una nuova coppia (una realizzazione per draw)
+s_q_new <- softmax_rows(mu_q + sigma_q * matrix(rnorm(4000 * 3), 4000, 3))
+s_r_new <- softmax_rows(mu_r + sigma_r * matrix(rnorm(4000 * 3), 4000, 3))
+
+# Delta per residente (cella 2 = esito minore, cella 3 = esito maggiore)
+delta_minore <- parametri_caduta$q_new *
+  s_q_new[, 2] -
+  parametri_caduta$r_new * s_r_new[, 2]
+delta_maggiore <- parametri_caduta$q_new *
+  s_q_new[, 3] -
+  parametri_caduta$r_new * s_r_new[, 3]
+
+# Ratio per cella: la MEDIA non esiste (code pesanti, r_new ~ 0) — solo mediana
+ratio_minore <- delta_minore / (parametri_caduta$r_new * s_r_new[, 2])
+ratio_maggiore <- delta_maggiore / (parametri_caduta$r_new * s_r_new[, 3])
+
+summ_pred <- function(v) {
+  h <- bayestestR::hdi(v)
+  p <- mean(v < 0)
+  c(
+    media = mean(v),
+    mediana = median(v),
+    hdi_lo = h$CI_low,
+    hdi_hi = h$CI_high,
+    p_calo = p,
+    log_bf = log10(p / (1 - p))
+  )
+}
+
+tab_esiti <- bind_rows(
+  as_tibble(t(summ_pred(delta_minore))),
+  as_tibble(t(summ_pred(delta_maggiore)))
+) |>
+  mutate(esito = c("minore", "maggiore"), .before = 1) |>
+  mutate(across(-esito, ~ round(.x, 4)))
+
+tab_esiti
+
+# Mediana del ratio per cella (effetto percentuale "tipico" per nuova coppia)
+tibble(
+  esito = c("minore", "maggiore"),
+  mediana_ratio = c(median(ratio_minore), median(ratio_maggiore)),
+  hdi_lo = c(
+    bayestestR::hdi(ratio_minore)$CI_low,
+    bayestestR::hdi(ratio_maggiore)$CI_low
+  ),
+  hdi_hi = c(
+    bayestestR::hdi(ratio_minore)$CI_high,
+    bayestestR::hdi(ratio_maggiore)$CI_high
+  )
+) |>
+  mutate(across(-esito, ~ round(.x, 3)))
+```
+
+**Esito:** evidenza di riduzione debole per entrambe le tipologie — esito
+minore P(calo) = 0.52 (log BF 0.04), esito maggiore P(calo) = 0.60 (log BF
+0.17). Per l'esito minore la media predittiva è addirittura positiva
+(+0.014) contro mediana lievemente negativa: coda destra, possibile
+peggioramento in una quota di nuove coppie. I ratio hanno mediane appariscenti
+(−13% e −59%) ma HDI enormi ([−1, 46] e [−1, 156]): instabilità da
+baseline minuscola — nel paper riportare i **delta assoluti**, mai i ratio.
+La difesa ipotetica "chi cade si fa più male, ma in totale si fanno male
+gravemente meno residenti" non è supportata.
+
+### Analisi predittiva delle quote di esito NOTA la caduta
+
+Secondo pezzo della scomposizione: tra chi cade, i contenuti si fanno più
+male? Estimando: $s_q[m]$ vs $s_r[m]$ (quota di esito $m$ **condizionata alla
+caduta**), distribuzione predittiva per una nuova coppia. Il tasso per
+residente si scompone in P(caduta) × quota; questo chunk stima il secondo
+fattore.
+
+```{r}
+#| label: pred-outcome-shares
+# Riusa s_q_new, s_r_new e summ_pred dal chunk pred-outcome-cells
+delta_share_minore <- s_q_new[, 2] - s_r_new[, 2]
+delta_share_maggiore <- s_q_new[, 3] - s_r_new[, 3]
+
+# Ratio delle quote: la MEDIA non esiste (code pesanti) — solo mediana
+ratio_share_minore <- delta_share_minore / s_r_new[, 2]
+ratio_share_maggiore <- delta_share_maggiore / s_r_new[, 3]
+
+tab_share <- bind_rows(
+  as_tibble(t(summ_pred(delta_share_minore))),
+  as_tibble(t(summ_pred(delta_share_maggiore)))
+) |>
+  mutate(esito = c("minore", "maggiore"), .before = 1) |>
+  mutate(across(-esito, ~ round(.x, 4)))
+
+tab_share
+
+tibble(
+  esito = c("minore", "maggiore"),
+  mediana_ratio = c(median(ratio_share_minore), median(ratio_share_maggiore)),
+  hdi_lo = c(
+    bayestestR::hdi(ratio_share_minore)$CI_low,
+    bayestestR::hdi(ratio_share_maggiore)$CI_low
+  ),
+  hdi_hi = c(
+    bayestestR::hdi(ratio_share_minore)$CI_high,
+    bayestestR::hdi(ratio_share_maggiore)$CI_high
+  )
+) |>
+  mutate(across(-esito, ~ round(.x, 3)))
+```
+
+**Esito:** esito minore — P(quota cala) = 0.28, cioè **72% di probabilità
+che la quota di esiti minori tra i caduti aumenti** con la contenzione
+(mediana ratio +0.83 [−1, 5.4], log BF −0.40): supporto moderato alla
+premessa "chi cade si fa più male (lieve)". Esito maggiore — 0.52, moneta.
+La scomposizione chiude il cerchio contro la difesa ipotetica: P(caduta)
+cala debolmente (61%) ma la quota di esito minore sale (72%), e il prodotto
+netto per residente è un pareggio (~52%, media positiva). Anche concedendo
+la premessa, il numero di residenti che cadono e si fanno male non
+diminuisce. HDI larghi (sparsità delle celle): indicazioni moderate, non
+conclusive.
 
 ## Session Info
 
