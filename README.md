@@ -4,21 +4,32 @@ Research compendium investigating the association between physical restraint use
 
 ## Overview
 
-Data come from **Indicare Salute Lab**, a quality monitoring system managed by UPIPA (Unione Provinciale Istituzioni Per l'Assistenza). The analysis covers facility-level aggregated indicators collected annually across nursing homes in the province.
+Data come from **Indicare Salute Lab**, a quality monitoring system managed by UPIPA (Unione Provinciale Istituzioni Per l'Assistenza). Observations are facility × care-sector × month combinations, pairing the restraint indicator (2.1, point prevalence) with three nested fall indicators: total falls (1.1), falls with any outcome (1.3), and falls with major outcome such as fractures (1.5).
 
 The main research question is whether physical restraint use is associated with a reduction in falls — and whether any such association is clinically meaningful.
+
+## Key findings
+
+The restraint–fall association is **strongly heterogeneous** across facility–sector pairs and **not generalizable**:
+
+- Of 47 facility–sector pairs, ~15 show credible benefit, ~8 credible harm, and ~24 are uncertain — the effect changes sign across facilities.
+- For a new, unobserved facility, the posterior predictive probability of any benefit is only ~61%.
+- There is no meaningful evidence that restraint reduces **major-outcome falls** (the clinically important ones): the average effect is compatible with zero.
+- On minor-outcome falls, more pairs show credible harm (10) than credible benefit (6).
+
+Effectiveness of restraint as a fall-prevention strategy should be evaluated case by case, based on the characteristics of each facility, and confirmed with individual-level data.
 
 ## Project structure
 
 This project is organized as an R package for consistency and reproducibility:
-  
+
 ```
 R/               Functions (data retrieval, utilities)
-data-raw/        Scripts that produce the analysis dataset
+data-raw/        Model development document + scripts that produce the dataset
 inst/stan/       Stan model files
 inst/extdata/    Pre-computed results (posteriors, cleaned data)
 tests/           Unit tests
-vignettes/       Reproducible analysis (accessible after install)
+vignettes/       Analysis vignette (accessible after install)
 manuscript/      Journal submission version (not in package)
 ```
 
@@ -38,8 +49,8 @@ vignette("analysis", "restraintsfalls")
 
 ## Methods
 
-Bayesian binomial models estimated with Stan, linking the logit of restraint prevalence to the logit of fall rates, with a temporal trend component. Models are compared against an independence baseline.
+Bayesian hierarchical models estimated with Stan (cmdstanr). The final model uses a collapsed likelihood — falls conditional on the observed restraint count, $Y \mid X \sim \text{Bin}(n_y, \bar p)$ with $\bar p = (X/n_x)\,q + (1 - X/n_x)\,r$ — with the nested fall outcomes factorized exactly as Binomial(fall) × Multinomial(outcome | fall). Restraint prevalence follows a per-pair quadratic time trend (orthogonalized, standardized); fall rates are partially pooled across facility–sector pairs via Beta hyperpriors, and outcome shares via a non-centered logistic-normal hierarchy. Model development proceeded through 12 iterations with Bayes factors (bridge sampling) and posterior predictive checks; the full workflow is documented in `data-raw/model-development.qmd`.
 
 ## Status
 
-Work in progress. Target journal: *BMC Geriatrics*.
+Analysis complete. Manuscript in preparation. Target journal: *BMC Geriatrics*.
