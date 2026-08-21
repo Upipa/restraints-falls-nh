@@ -1,0 +1,78 @@
+# Does Physical Restraint Use Prevent Falls in Nursing Homes?
+
+## Background
+
+Physical restraint use in nursing homes is a common but controversial
+practice. One of the most frequently cited justifications is fall
+prevention. This analysis examines whether facility-level restraint
+prevalence is associated with lower fall rates, using longitudinal data
+from 2016 to 2025 across nursing homes in the province of Trento, Italy.
+
+## Data
+
+Data come from the **Indicare Salute Lab** quality monitoring system.
+Each observation represents a facility × care-sector × month
+combination, pairing the restraint indicator (2.1, point prevalence on
+the index day) with three nested fall indicators: total falls (1.1),
+falls with any outcome (1.3), and falls with major outcome such as
+fractures (1.5). The nesting ($`1.5 \subseteq 1.3 \subseteq 1.1`$)
+allows the outcome cells to be modeled as a single multinomial vector
+over residents.
+
+## Model
+
+The final model is a Bayesian hierarchical model with a collapsed
+likelihood. Conditional on the observed restraint count $`X`$ in a
+facility–sector pair $`k`$:
+
+``` math
+X \sim \text{Binomial}(n_x, p_k), \qquad
+Y \mid X \sim \text{Binomial}\!\left(n_y,\; \bar p_k\right), \quad
+\bar p_k = \frac{X}{n_x}\, q_k + \left(1 - \frac{X}{n_x}\right) r_k
+```
+
+where $`q_k`$ and $`r_k`$ are the fall probabilities for restrained and
+non-restrained residents. Fall outcomes are factorized exactly as
+Binomial(fall) × Multinomial(outcome \| fall), with outcome cells (no
+outcome / minor / major). Restraint prevalence follows a per-pair
+quadratic time trend on the logit scale (orthogonalized and
+standardized),
+$`\text{logit}(p_k) = \beta_k + \alpha_k t + \gamma_k t^2`$; fall rates
+are partially pooled across pairs via Beta hyperpriors, and outcome
+shares via a non-centered logistic-normal hierarchy.
+
+``` r
+
+# The fitted model is not shipped (large file); this vignette reports the
+# results. The full reproducible pipeline is in data-raw/model-development.qmd
+# of the source repository.
+fit_path <- system.file(
+  "extdata",
+  "fit_multinomial_fac_sec_quad.rds",
+  package = "restraintsfalls"
+)
+has_fit <- file.exists(fit_path)
+```
+
+## Results
+
+The association between restraint and falls is **strongly
+heterogeneous** across facility–sector pairs. Of the 47 pairs, about 15
+show credible benefit (restrained residents fall less), about 8 show
+credible harm, and the rest are uncertain — the effect changes sign
+across facilities. For a new, unobserved facility–sector pair, the
+posterior predictive probability of any benefit is only about 61%.
+
+For **major-outcome falls** (the clinically important ones), the average
+effect is compatible with zero and predictive evidence of benefit is
+weak (P ≈ 0.60). On falls with minor outcomes, more pairs show credible
+harm (10) than credible benefit (6).
+
+## Conclusions
+
+The effect of physical restraint on falls is real but not generalizable:
+its sign and magnitude vary unpredictably across facilities. There is no
+meaningful evidence that restraint reduces the falls that matter most —
+those with major outcomes. Effectiveness as a fall-prevention strategy
+should be evaluated case by case, based on the characteristics of each
+facility, and confirmed with individual-level data.
