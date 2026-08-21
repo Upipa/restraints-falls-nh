@@ -9,3 +9,4 @@ inst/extdata/*.rds
 inst/stan/*.exe
 manuscript/_output/
 .vscode
+linkedin-post.png
