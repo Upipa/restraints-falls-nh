@@ -29,7 +29,8 @@ reference:
   contents:
   - restraints_falls
 - title: Model
-  desc: Prepare the data and fit the final multi-outcome model
+  desc: Prepare the data, fit the final multi-outcome model, load the fit
   contents:
   - prepare_model_data
   - fit_model
+  - load_fit

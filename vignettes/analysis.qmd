@@ -52,12 +52,32 @@ partially pooled across pairs via Beta hyperpriors, and outcome shares via a
 non-centered logistic-normal hierarchy.
 
 ```{r}
+#| label: load-fit
+# The posterior draws of the final model ship with the package (light
+# version: all parameters and contrasts, without the bulky per-observation
+# predictive replications):
+draws <- load_fit()
+```
+
+```{r}
+#| label: key-contrasts
+# Key contrasts, computed live from the shipped draws:
+posterior::summarise_draws(
+  posterior::subset_draws(
+    draws,
+    variable = c("delta_fall", "rr_fall", "delta_major", "rr_major")
+  )
+)
+```
+
+```{r}
 #| label: reproduce-fit
 #| eval: false
-# The fitted model is not shipped (large file, ~6 h runtime). The analysis is
-# fully reproducible from the packaged dataset with two function calls:
+# The full CmdStanMCMC object is too large to ship (202 MB, mostly the
+# predictive replications used for PPC). To reproduce the analysis
+# end-to-end from the packaged dataset:
 prep <- prepare_model_data()
-fit <- fit_model(prepared = prep) # full fit; use quick = TRUE for a fast check
+fit <- fit_model(prepared = prep) # full fit (~6 h); use quick = TRUE for a fast check
 
 # The complete development workflow (all 12 model iterations, Bayes factors,
 # posterior predictive checks) is in data-raw/model-development.qmd of the

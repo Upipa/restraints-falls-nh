@@ -23,6 +23,7 @@ Suggests:
     cmdstanr,
     ggplot2,
     pkgdown,
+    posterior,
     quarto,
     testthat (>= 3.0.0)
 URL: https://upipa.github.io/restraints-falls-nh/

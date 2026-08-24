@@ -6,6 +6,8 @@ AGENTS.md
 docs/
 .Renviron
 inst/extdata/*.rds
+# Eccezione: versione leggera del fit finale (parametri + contrasti, ~16 MB)
+!inst/extdata/fit_m12_draws.rds
 inst/stan/*.exe
 manuscript/_output/
 .vscode
