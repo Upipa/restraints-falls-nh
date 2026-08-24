@@ -48,43 +48,45 @@ format:
 bibliography: references.bib
 execute:
   echo: false
+abstract: |
+    **Background.** Physical restraint use in nursing homes is widely practiced,
+    often justified by fall prevention, yet its effectiveness is contested. Most
+    evidence comes from short trials or cross-sectional comparisons; longitudinal
+    evidence across many facilities is scarce.
+
+    **Methods.** We analyzed ten years (2016–2025) of quality-monitoring data from
+    36 nursing homes in Trento, Italy (Indicare Salute Lab, UPIPA), pairing monthly
+    restraint prevalence with three nested fall indicators (total falls, falls with
+    any outcome, falls with major outcome). We fitted a Bayesian hierarchical model
+    with a collapsed binomial likelihood: falls given the observed restraint count,
+    with the nested outcomes factorized as Binomial(fall) × Multinomial(outcome |
+    fall). Facility–sector pairs received their own restraint time trends and
+    partially pooled fall rates (Beta hierarchy) and outcome shares
+    (logistic-normal hierarchy). Model development used Bayes factors and
+    posterior predictive checks.
+    
+    **Results.** The restraint–fall association was strongly heterogeneous across
+    the 47 facility–sector pairs: about 15 showed credible benefit, 8 credible
+    harm, and 24 were uncertain. For a new, unobserved pair, the posterior
+    predictive probability of benefit was 61%. On average, restrained residents
+    fell slightly less (δ = −0.020, 90% HDI [−0.033, −0.005]), but there was no
+    evidence of benefit on major-outcome falls (δ ≈ 0, 90% HDI [−0.003, 0.002]),
+    and on minor-outcome falls more pairs showed credible harm (10) than benefit
+    (6).
+
+    **Conclusions.** The effect of physical restraint on falls is real but not
+    generalizable: its sign and magnitude vary unpredictably across facilities, and
+    there is no meaningful evidence of benefit where it matters most — falls with
+    major outcomes. Effectiveness as a fall-prevention strategy should be evaluated
+    case by case.
+keywords: 
+  - physical restraint
+  - falls
+  - nursing homes
+  - Bayesian hierarchical model
+  - quality monitoring
+  - ecological study
 ---
-
-# Abstract
-
-**Background.** Physical restraint use in nursing homes is widely practiced,
-often justified by fall prevention, yet its effectiveness is contested. Most
-evidence comes from short trials or cross-sectional comparisons; longitudinal
-evidence across many facilities is scarce.
-
-**Methods.** We analyzed ten years (2016–2025) of quality-monitoring data from
-36 nursing homes in Trento, Italy (Indicare Salute Lab, UPIPA), pairing monthly
-restraint prevalence with three nested fall indicators (total falls, falls with
-any outcome, falls with major outcome). We fitted a Bayesian hierarchical model
-with a collapsed binomial likelihood: falls given the observed restraint count,
-with the nested outcomes factorized as Binomial(fall) × Multinomial(outcome |
-fall). Facility–sector pairs received their own restraint time trends and
-partially pooled fall rates (Beta hierarchy) and outcome shares
-(logistic-normal hierarchy). Model development used Bayes factors and
-posterior predictive checks.
-
-**Results.** The restraint–fall association was strongly heterogeneous across
-the 47 facility–sector pairs: about 15 showed credible benefit, 8 credible
-harm, and 24 were uncertain. For a new, unobserved pair, the posterior
-predictive probability of benefit was 61%. On average, restrained residents
-fell slightly less (δ = −0.020, 90% HDI [−0.033, −0.005]), but there was no
-evidence of benefit on major-outcome falls (δ ≈ 0, 90% HDI [−0.003, 0.002]),
-and on minor-outcome falls more pairs showed credible harm (10) than benefit
-(6).
-
-**Conclusions.** The effect of physical restraint on falls is real but not
-generalizable: its sign and magnitude vary unpredictably across facilities, and
-there is no meaningful evidence of benefit where it matters most — falls with
-major outcomes. Effectiveness as a fall-prevention strategy should be evaluated
-case by case.
-
-**Keywords:** physical restraint; falls; nursing homes; Bayesian hierarchical
-model; quality monitoring; ecological study
 
 # Background
 
