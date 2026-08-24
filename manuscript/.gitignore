@@ -1,2 +1,5 @@
 /.quarto/
 **/*.quarto_ipynb
+
+# Creata per errore da renv::activate durante il render (la renv vera e' nel progetto padre)
+renv/
