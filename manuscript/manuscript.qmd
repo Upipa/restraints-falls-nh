@@ -98,14 +98,19 @@ to reduce restraint use in long-term care found that restraint prevalence can
 be reduced without increasing falls or fall-related injuries [@möhler2023] —
 a finding difficult to reconcile with a protective effect of restraint.
 
-Most available evidence comes from short randomized trials or cross-sectional
-comparisons of facilities with different restraint rates. Two gaps remain.
-First, few studies observe the same facilities longitudinally over many years,
-so secular trends and within-facility variation are poorly understood. Second,
-falls are typically analyzed as a single outcome, although the clinical stakes
-differ enormously between a fall without consequences and one causing fracture
-or serious injury. If restraint prevents only clinically irrelevant falls, its
-use as a preventive strategy loses justification.
+Most available evidence comes from short trials or cross-sectional
+comparisons of facilities with different restraint rates, and systematic
+reviews have repeatedly characterized this evidence base as limited and
+inconclusive [@möhler2023; @sze2012; @hakverdiogluyönt2023]. Two gaps remain.
+First, few studies observe the same facilities longitudinally over many
+years, so secular trends and within-facility variation are poorly understood.
+Second, falls are typically analyzed as a single outcome, although the
+clinical stakes differ enormously between a fall without consequences and one
+causing fracture or serious injury; the few studies that distinguish
+injurious falls have found no protective effect of restraint — and possibly
+more serious fall-related injuries [@tinetti1992; @capezuti1996]. If
+restraint prevents only clinically irrelevant falls, its use as a preventive
+strategy loses justification.
 
 We address both gaps using a decade of quality-monitoring data from the
 province of Trento, Italy, analyzing total falls alongside two nested
