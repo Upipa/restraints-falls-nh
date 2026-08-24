@@ -316,7 +316,12 @@ reverse causation cannot be excluded (a fall may reduce the subsequent
 probability of restraint, generating an artificial protective association) and
 no adjustment for case-mix or staffing was possible. Major-outcome cells are
 sparse, limiting per-pair inference (43 of 47 pairs unclassifiable) and
-producing conservative predictive intervals. The collapsed likelihood is an
+producing conservative predictive intervals. The sparsity is likely compounded
+by measurement: major-injury falls are substantially underreported in
+quality-monitoring data [@sanghavi2020]. Because such underreporting plausibly
+affects restrained and non-restrained residents similarly, the contrasts
+(deltas) are more robust to it than the absolute rates, which are probably
+underestimated. The collapsed likelihood is an
 approximation, albeit validated against the exact model. Finally, the 36
 facilities come from a single Italian province, and the predictive statements
 concern that population.
