@@ -98,10 +98,12 @@ to reduce restraint use in long-term care found that restraint prevalence can
 be reduced without increasing falls or fall-related injuries [@möhler2023] —
 a finding difficult to reconcile with a protective effect of restraint.
 
-Most available evidence comes from short trials or cross-sectional
-comparisons of facilities with different restraint rates, and systematic
-reviews have repeatedly characterized this evidence base as limited and
-inconclusive [@möhler2023; @sze2012; @hakverdiogluyönt2023]. Two gaps remain.
+The available evidence base is small and of low certainty: systematic reviews
+have repeatedly characterized it as limited and inconclusive [@möhler2023;
+@sze2012; @hakverdiogluyönt2023], and the primary studies are typically
+short-term and compare restrained and non-restrained residents within single
+facilities or small facility samples [@tinetti1992; @capezuti1996;
+@fernandezibanez2020]. Two gaps remain.
 First, few studies observe the same facilities longitudinally over many
 years, so secular trends and within-facility variation are poorly understood.
 Second, falls are typically analyzed as a single outcome, although the
