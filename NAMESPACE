@@ -2,4 +2,5 @@
 
 export(fit_model)
 export(get_data)
+export(load_fit)
 export(prepare_model_data)
