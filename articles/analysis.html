@@ -76,15 +76,42 @@ Y \mid X \sim \text{Binomial}\!\left(n_y,\; \bar p_k\right), \quad
 <p>where <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>k</mi></msub><annotation encoding="application/x-tex">q_k</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>r</mi><mi>k</mi></msub><annotation encoding="application/x-tex">r_k</annotation></semantics></math> are the fall probabilities for restrained and non-restrained residents. Fall outcomes are factorized exactly as Binomial(fall) × Multinomial(outcome | fall), with outcome cells (no outcome / minor / major). Restraint prevalence follows a per-pair quadratic time trend on the logit scale (orthogonalized and standardized), <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">logit</mtext><mo stretchy="false" form="prefix">(</mo><msub><mi>p</mi><mi>k</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>β</mi><mi>k</mi></msub><mo>+</mo><msub><mi>α</mi><mi>k</mi></msub><mi>t</mi><mo>+</mo><msub><mi>γ</mi><mi>k</mi></msub><msup><mi>t</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\text{logit}(p_k) = \beta_k + \alpha_k t + \gamma_k t^2</annotation></semantics></math>; fall rates are partially pooled across pairs via Beta hyperpriors, and outcome shares via a non-centered logistic-normal hierarchy.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># The fitted model is not shipped (large file); this vignette reports the</span></span>
-<span><span class="co"># results. The full reproducible pipeline is in data-raw/model-development.qmd</span></span>
-<span><span class="co"># of the source repository.</span></span>
-<span><span class="va">fit_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span></span>
-<span>  <span class="st">"extdata"</span>,</span>
-<span>  <span class="st">"fit_multinomial_fac_sec_quad.rds"</span>,</span>
-<span>  package <span class="op">=</span> <span class="st">"restraintsfalls"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">has_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="va">fit_path</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># The posterior draws of the final model ship with the package (light</span></span>
+<span><span class="co"># version: all parameters and contrasts, without the bulky per-observation</span></span>
+<span><span class="co"># predictive replications):</span></span>
+<span><span class="va">draws</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_fit.html">load_fit</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Key contrasts, computed live from the shipped draws:</span></span>
+<span><span class="fu">posterior</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/posterior/reference/draws_summary.html" class="external-link">summarise_draws</a></span><span class="op">(</span></span>
+<span>  <span class="fu">posterior</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/posterior/reference/subset_draws.html" class="external-link">subset_draws</a></span><span class="op">(</span></span>
+<span>    <span class="va">draws</span>,</span>
+<span>    variable <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"delta_fall"</span>, <span class="st">"rr_fall"</span>, <span class="st">"delta_major"</span>, <span class="st">"rr_major"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 10
+  variable        mean   median      sd     mad       q5      q95  rhat ess_bulk
+  &lt;chr&gt;          &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;
+1 delta_fall  -1.96e-2 -1.99e-2 0.00862 0.00853 -0.0333  -0.00493  1.01     444.
+2 rr_fall      7.70e-1  7.62e-1 0.0938  0.0899   0.629    0.937    1.01     446.
+3 delta_major -7.68e-4 -7.94e-4 0.00152 0.00154 -0.00317  0.00175  1.01     430.
+4 rr_major     8.72e-1  8.06e-1 0.391   0.346    0.381    1.59     1.01     430.
+# ℹ 1 more variable: ess_tail &lt;dbl&gt;</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># The full CmdStanMCMC object is too large to ship (202 MB, mostly the</span></span>
+<span><span class="co"># predictive replications used for PPC). To reproduce the analysis</span></span>
+<span><span class="co"># end-to-end from the packaged dataset:</span></span>
+<span><span class="va">prep</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prepare_model_data.html">prepare_model_data</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fit_model.html">fit_model</a></span><span class="op">(</span>prepared <span class="op">=</span> <span class="va">prep</span><span class="op">)</span> <span class="co"># full fit (~6 h); use quick = TRUE for a fast check</span></span>
+<span></span>
+<span><span class="co"># The complete development workflow (all 12 model iterations, Bayes factors,</span></span>
+<span><span class="co"># posterior predictive checks) is in data-raw/model-development.qmd of the</span></span>
+<span><span class="co"># source repository.</span></span></code></pre></div>
 </div>
 </section><section class="level2"><h2 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a>
 </h2>

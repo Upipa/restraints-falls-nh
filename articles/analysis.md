@@ -43,15 +43,43 @@ shares via a non-centered logistic-normal hierarchy.
 
 ``` r
 
-# The fitted model is not shipped (large file); this vignette reports the
-# results. The full reproducible pipeline is in data-raw/model-development.qmd
-# of the source repository.
-fit_path <- system.file(
-  "extdata",
-  "fit_multinomial_fac_sec_quad.rds",
-  package = "restraintsfalls"
+# The posterior draws of the final model ship with the package (light
+# version: all parameters and contrasts, without the bulky per-observation
+# predictive replications):
+draws <- load_fit()
+```
+
+``` r
+
+# Key contrasts, computed live from the shipped draws:
+posterior::summarise_draws(
+  posterior::subset_draws(
+    draws,
+    variable = c("delta_fall", "rr_fall", "delta_major", "rr_major")
+  )
 )
-has_fit <- file.exists(fit_path)
+```
+
+    # A tibble: 4 × 10
+      variable        mean   median      sd     mad       q5      q95  rhat ess_bulk
+      <chr>          <dbl>    <dbl>   <dbl>   <dbl>    <dbl>    <dbl> <dbl>    <dbl>
+    1 delta_fall  -1.96e-2 -1.99e-2 0.00862 0.00853 -0.0333  -0.00493  1.01     444.
+    2 rr_fall      7.70e-1  7.62e-1 0.0938  0.0899   0.629    0.937    1.01     446.
+    3 delta_major -7.68e-4 -7.94e-4 0.00152 0.00154 -0.00317  0.00175  1.01     430.
+    4 rr_major     8.72e-1  8.06e-1 0.391   0.346    0.381    1.59     1.01     430.
+    # ℹ 1 more variable: ess_tail <dbl>
+
+``` r
+
+# The full CmdStanMCMC object is too large to ship (202 MB, mostly the
+# predictive replications used for PPC). To reproduce the analysis
+# end-to-end from the packaged dataset:
+prep <- prepare_model_data()
+fit <- fit_model(prepared = prep) # full fit (~6 h); use quick = TRUE for a fast check
+
+# The complete development workflow (all 12 model iterations, Bayes factors,
+# posterior predictive checks) is in data-raw/model-development.qmd of the
+# source repository.
 ```
 
 ## Results
