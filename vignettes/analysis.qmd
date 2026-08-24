@@ -52,16 +52,16 @@ partially pooled across pairs via Beta hyperpriors, and outcome shares via a
 non-centered logistic-normal hierarchy.
 
 ```{r}
-#| label: load-posteriors
-# The fitted model is not shipped (large file); this vignette reports the
-# results. The full reproducible pipeline is in data-raw/model-development.qmd
-# of the source repository.
-fit_path <- system.file(
-  "extdata",
-  "fit_multinomial_fac_sec_quad.rds",
-  package = "restraintsfalls"
-)
-has_fit <- file.exists(fit_path)
+#| label: reproduce-fit
+#| eval: false
+# The fitted model is not shipped (large file, ~6 h runtime). The analysis is
+# fully reproducible from the packaged dataset with two function calls:
+prep <- prepare_model_data()
+fit <- fit_model(prepared = prep) # full fit; use quick = TRUE for a fast check
+
+# The complete development workflow (all 12 model iterations, Bayes factors,
+# posterior predictive checks) is in data-raw/model-development.qmd of the
+# source repository.
 ```
 
 ## Results
