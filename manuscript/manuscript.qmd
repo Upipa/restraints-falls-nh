@@ -219,8 +219,14 @@ library(restraintsfalls)
 draws <- load_fit()
 pair_labels <- prepare_model_data()$meta$pair_labels
 
-qf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(draws, variable = "q_fall")))
-rf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(draws, variable = "r_fall")))
+qf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(
+  draws,
+  variable = "q_fall"
+)))
+rf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(
+  draws,
+  variable = "r_fall"
+)))
 delta <- qf - rf
 
 tab <- apply(delta, 2, function(v) {
@@ -285,8 +291,8 @@ multi-facility perspective: even where an average association exists, it does
 not generalize. The primary studies that distinguished injurious falls found
 restraint associated with more, not fewer, serious fall-related injuries
 [@tinetti1992], and no protective effect in the resident subgroups most
-likely to be restrained [@capezuti1996] — consistent with the credible-harm
-pairs in our data. Studies reporting
+likely to be restrained [@capezuti1996; @fernandezibanez2020] — consistent
+with the credible-harm pairs in our data. Studies reporting
 protective average effects may be pooling over sign-varying facility effects.
 <!-- TODO: additional references (falls in NH, restraint prevalence, ecological bias) -->
 
