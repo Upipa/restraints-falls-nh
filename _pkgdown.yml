@@ -28,3 +28,8 @@ reference:
   desc: The cleaned and anonymized analysis dataset
   contents:
   - restraints_falls
+- title: Model
+  desc: Prepare the data and fit the final multi-outcome model
+  contents:
+  - prepare_model_data
+  - fit_model
