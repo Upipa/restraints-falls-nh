@@ -3,18 +3,51 @@ title: "Does Physical Restraint Use Prevent Falls in Nursing Homes? Evidence fro
 author:
   - name: Ivan Marino
     email: ivan.marino@upipa.tn.it
+    roles: [conceptualization, data curation, analysis, methodology, resources, software, validation, visualization, writing]
     affiliation:
-      - name: UPIPA — Unione Provinciale Istituzioni per l'Assistenza
-        city: Trento
-        country: Italy
-  # TODO: co-authors (UniTN / UniVR collaboration)
+      - ref: upipa
+  - name: Marco Pagani
+    email: pagani.marco1.2@gmail.com
+    roles: [conceptualization, investigation]
+  - name: Eleonora Negri
+    email: eleonora.negri@upipa.tn.it
+    roles: [conceptualization, funding]
+    affiliation:
+      - ref: upipa
+  - name: Massimo Giordani
+    email: direttore@upipa.tn.it
+    roles: [conceptualization, funding]
+    affiliation:
+      - ref: upipa
+  - name: Marianna Baggia
+    email: marianna.baggia@upipa.tn.it
+    roles: [conceptualization, funding]
+    affiliation:
+      - ref: upipa
+  - name: Massimiliano Vario
+    email: massimiliano.vario@provincia.tn.it
+    roles: [conceptualization]
+    affiliation:
+      - ref: pat
+  - name: Emanuele Torri
+    email: emanuele.torri@asuit.tn.it
+    roles: [conceptualization]
+    affiliation:
+      - ref: asuit
+affiliations:
+  - id: upipa
+    name: UPIPA — Unione Provinciale Istituzioni per l'Assistenza
+  - id: pat
+    name: Provincia Autonoma di Trento
+  - id: asuit
+    name: Azienda Sanitaria Universitaria Integrata del Trentino
 format:
   html:
     toc: true
     self-contained: true
 bibliography: references.bib
 execute:
-  eval: false
+  echo: false
 ---
 
 # Abstract
