@@ -1,0 +1,265 @@
+---
+title: "Does Physical Restraint Use Prevent Falls in Nursing Homes? Evidence from a Decade of Quality Monitoring Data"
+author:
+  - name: Ivan Marino
+    email: ivan.marino@upipa.tn.it
+    affiliation:
+      - name: UPIPA — Unione Provinciale Istituzioni per l'Assistenza
+        city: Trento
+        country: Italy
+  # TODO: co-authors (UniTN / UniVR collaboration)
+format:
+  html:
+    toc: true
+    self-contained: true
+bibliography: references.bib
+execute:
+  eval: false
+---
+
+# Abstract
+
+**Background.** Physical restraint use in nursing homes is widely practiced,
+often justified by fall prevention, yet its effectiveness is contested. Most
+evidence comes from short trials or cross-sectional comparisons; longitudinal
+evidence across many facilities is scarce.
+
+**Methods.** We analyzed ten years (2016–2025) of quality-monitoring data from
+36 nursing homes in Trento, Italy (Indicare Salute Lab, UPIPA), pairing monthly
+restraint prevalence with three nested fall indicators (total falls, falls with
+any outcome, falls with major outcome). We fitted a Bayesian hierarchical model
+with a collapsed binomial likelihood: falls given the observed restraint count,
+with the nested outcomes factorized as Binomial(fall) × Multinomial(outcome |
+fall). Facility–sector pairs received their own restraint time trends and
+partially pooled fall rates (Beta hierarchy) and outcome shares
+(logistic-normal hierarchy). Model development used Bayes factors and
+posterior predictive checks.
+
+**Results.** The restraint–fall association was strongly heterogeneous across
+the 47 facility–sector pairs: about 15 showed credible benefit, 8 credible
+harm, and 24 were uncertain. For a new, unobserved pair, the posterior
+predictive probability of benefit was 61%. On average, restrained residents
+fell slightly less (δ = −0.020, 90% HDI [−0.033, −0.005]), but there was no
+evidence of benefit on major-outcome falls (δ ≈ 0, 90% HDI [−0.003, 0.002]),
+and on minor-outcome falls more pairs showed credible harm (10) than benefit
+(6).
+
+**Conclusions.** The effect of physical restraint on falls is real but not
+generalizable: its sign and magnitude vary unpredictably across facilities, and
+there is no meaningful evidence of benefit where it matters most — falls with
+major outcomes. Effectiveness as a fall-prevention strategy should be evaluated
+case by case.
+
+**Keywords:** physical restraint; falls; nursing homes; Bayesian hierarchical
+model; quality monitoring; ecological study
+
+# Background
+
+Physical restraint use in nursing homes remains common despite longstanding
+ethical and clinical controversy [@hakverdiogluyönt2023]. The most frequently
+cited justification is the prevention of falls and fall-related injuries, yet
+the evidence base is weak and contested: a Cochrane review found no convincing
+evidence that restraint interventions reduce falls, while restraint itself
+carries documented harms [@möhler2023].
+
+Most available evidence comes from short randomized trials or cross-sectional
+comparisons of facilities with different restraint rates. Two gaps remain.
+First, few studies observe the same facilities longitudinally over many years,
+so secular trends and within-facility variation are poorly understood. Second,
+falls are typically analyzed as a single outcome, although the clinical stakes
+differ enormously between a fall without consequences and one causing fracture
+or serious injury. If restraint prevents only clinically irrelevant falls, its
+use as a preventive strategy loses justification.
+
+We address both gaps using a decade of quality-monitoring data from the
+province of Trento, Italy, analyzing total falls alongside two nested
+severity outcomes in a unified Bayesian hierarchical model.
+
+# Methods
+
+## Data
+
+Data come from the **Indicare Salute Lab** quality-monitoring system (UPIPA),
+covering 36 nursing homes in the province of Trento from 2016 to 2025. Each
+record is a facility × care-sector × month combination reporting four
+indicators: point prevalence of physical restraint on an index day (2.1), and
+incidence of falls in the reference period — total falls (1.1), falls with any
+recorded outcome (1.3), and falls with major outcome such as fractures (1.5).
+The fall indicators are nested (1.5 ⊆ 1.3 ⊆ 1.1), so the outcome cells
+(no outcome, minor, major, not fallen) form a multinomial vector over residents
+by successive differences. The analysis set comprises 2,524 records with both
+restraint and fall data, plus partially observed records contributing marginal
+information (242 restraint-only, 419 falls-only). Facility identifiers were
+anonymized prior to analysis.
+
+## Statistical model
+
+Let $X$ be the number of restrained residents out of $n_x$ observed for
+restraint, and $Y$ the number of residents who fell out of $n_y$ observed for
+falls, in facility–sector pair $k$ at time $t$. We use a collapsed likelihood
+that conditions falls on the observed restraint count:
+
+$$
+X \sim \text{Binomial}(n_x, p_k), \qquad
+Y \mid X \sim \text{Binomial}\!\left(n_y,\; \bar p_k\right), \quad
+\bar p_k = \frac{X}{n_x}\, q_k + \left(1 - \frac{X}{n_x}\right) r_k
+$$
+
+where $q_k$ and $r_k$ are the fall probabilities for restrained and
+non-restrained residents. This mean-matched binomial replaces the exact
+bivariate-binomial convolution; it was validated against the exact model
+(nearly identical posteriors, ~10× faster sampling). Restraint prevalence
+follows a per-pair quadratic time trend on the logit scale,
+$\text{logit}(p_k) = \beta_k + \alpha_k t + \gamma_k t_2$, with $t_2$ the
+orthogonalized, standardized quadratic term.
+
+The three fall outcomes are modeled jointly by factorizing the multinomial
+exactly as Binomial(fall) × Multinomial(outcome | fall). Fall rates are
+partially pooled across pairs, $q_k \sim \text{Beta}(a_q, b_q)$,
+$r_k \sim \text{Beta}(a_r, b_r)$ with $\text{Exp}(1)$ hyperpriors, and outcome
+shares follow a non-centered logistic-normal hierarchy. Having documented
+substantial between-facility heterogeneity in fall rates, we extended the same
+hierarchical structure to all levels of the model for coherence, avoiding
+homogeneity assumptions not supported by the data.
+
+## Estimation and model development
+
+Models were fitted with NUTS in Stan (via cmdstanr), 4 chains × 2,000
+iterations. Twelve candidate specifications were compared during development
+using Bayes factors (bridge sampling) where likelihoods were comparable, and
+posterior predictive checks (concordance of 95% predictive intervals with
+observations) throughout. The final model achieved near-perfect concordance on
+restraint (95.3%) and total falls (95.6%), and conservative coverage on the
+sparser outcome indicators (97.6% and 99.8%).
+
+## Estimands
+
+We report absolute differences in fall probabilities between restrained and
+non-restrained residents (δ), at three levels: the realized mean across
+observed pairs, the population mean under the hierarchy, and the posterior
+predictive distribution for a new, unobserved pair (including the probability
+of any benefit). Relative effects are summarized by medians, because the
+posterior mean of the population-level ratio does not exist (the posterior of
+the Beta shape parameter retains mass below 1, where the expectation diverges).
+The same analysis is reported per outcome cell, both per resident and
+conditional on a fall having occurred.
+
+# Results
+
+## Overall association
+
+On average across observed pairs, restrained residents fell slightly less than
+non-restrained ones (δ = −0.020, 90% HDI [−0.033, −0.005]; RR = 0.77 [0.63,
+0.94]). The population-level mean difference was negative with 81% posterior
+probability.
+
+## Heterogeneity across facilities
+
+The association was strongly heterogeneous across the 47 facility–sector pairs
+(@tbl-delta, to be added). About 15 pairs showed credible benefit
+(P(δ < 0) ≥ 0.95), 8 credible harm (P(δ < 0) ≤ 0.05, up to δ = +0.27), and 24
+were uncertain. For a new, unobserved pair, the posterior predictive
+probability of benefit was 61% (median risk ratio 0.56, with a very wide
+predictive interval). The heterogeneity was concentrated among restrained
+residents: between-pair variability of $q_k$ far exceeded that of $r_k$
+(logit-scale SD 2.34 vs 1.39). The delta was not associated with the facility's
+observed restraint rate, a proxy for local restraint policy.
+
+## Severity-specific outcomes
+
+For major-outcome falls — the clinically important events — the average effect
+was compatible with zero (δ ≈ 0, 90% HDI [−0.003, 0.002]) and predictive
+evidence of benefit was weak (P = 0.60 for a new pair). For minor-outcome
+falls, more pairs showed credible harm (10) than credible benefit (6), and the
+predictive probability of reduction was 0.52. Conditional on a fall having
+occurred, the share of minor outcomes tended to increase with restraint (72%
+posterior probability), while the share of major outcomes was unchanged (52%).
+
+# Discussion
+
+## Principal findings
+
+Across a decade of monitoring data, physical restraint was associated with a
+modest average reduction in falls, but the association was strongly
+heterogeneous: it reversed sign in a substantial minority of facility–sector
+pairs, and the probability that a new facility would see any benefit was barely
+above chance. Critically, there was no evidence of benefit on falls with major
+outcomes — the events that restraint is meant to prevent — and on
+minor-outcome falls the balance tilted toward harm.
+
+## The heterogeneity is the finding
+
+The heterogeneity was concentrated in the fall rates of restrained residents,
+while the baseline risk of non-restrained residents was comparatively stable
+across facilities. This pattern suggests that what differs between facilities
+is not the residents' underlying risk but what happens to restrained
+residents — plausibly local restraint practices or selection of who is
+restrained. Our ecological design cannot distinguish these mechanisms, and the
+heterogeneity was not explained by the facility's restraint intensity.
+
+## Relation to previous work
+
+Our findings are consistent with the Cochrane review's conclusion that
+restraint interventions lack convincing evidence of fall reduction
+[@möhler2023], and add a longitudinal, multi-facility perspective: even where
+an average association exists, it does not generalize. Studies reporting
+protective average effects may be pooling over sign-varying facility effects.
+<!-- TODO: additional references (falls in NH, restraint prevalence, ecological bias) -->
+
+## The "fewer seriously injured fallers" defense fails
+
+A possible defense of restraint is that even if those who fall get hurt more
+often, the total number of seriously injured fallers decreases. Our
+decomposition tests exactly this: the per-resident rate of major-outcome falls
+did not decrease (P = 0.60, HDI spanning zero), and for minor outcomes the
+predictive mean was slightly positive. Granting the premise does not rescue the
+conclusion.
+
+## Limitations
+
+The design is ecological: the unit is the facility–month, not the resident, so
+reverse causation cannot be excluded (a fall may reduce the subsequent
+probability of restraint, generating an artificial protective association) and
+no adjustment for case-mix or staffing was possible. Major-outcome cells are
+sparse, limiting per-pair inference (43 of 47 pairs unclassifiable) and
+producing conservative predictive intervals. The collapsed likelihood is an
+approximation, albeit validated against the exact model. Finally, the 36
+facilities come from a single Italian province, and the predictive statements
+concern that population.
+
+## Implications
+
+For practice: restraint should not be assumed to prevent falls, and any
+facility-level evaluation of restraint policies should use the facility's own
+data rather than assumed average effects. For research: individual-level data
+linking restraint episodes to subsequent falls, with case-mix adjustment, are
+needed to separate the causal directions.
+
+# Conclusions
+
+The effect of physical restraint on falls is real but not generalizable: its
+sign and magnitude vary unpredictably across facilities, and there is no
+meaningful evidence of benefit on the falls that matter most. Effectiveness as
+a fall-prevention strategy should be evaluated case by case, based on the
+characteristics of each facility, and confirmed with individual-level data.
+
+# Declarations
+
+**Ethics approval and consent to participate.** <!-- TODO: ethics statement — aggregated anonymized monitoring data; verify need for ethics approval / delibera reference -->
+
+**Consent for publication.** Not applicable.
+
+**Availability of data and materials.** The analysis code is available at
+https://github.com/upipa/restraints-falls-nh. The data are quality-monitoring
+records of UPIPA member facilities and are not publicly available.
+<!-- TODO: verify data-sharing statement with UPIPA -->
+
+**Competing interests.** The authors declare no competing interests.
+
+**Funding.** <!-- TODO -->
+
+**Authors' contributions.** <!-- TODO -->
+
+**Acknowledgements.** <!-- TODO -->
+
+# References
