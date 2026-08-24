@@ -197,7 +197,7 @@ probability.
 ## Heterogeneity across facilities
 
 The association was strongly heterogeneous across the 47 facility–sector pairs
-(@tbl-delta, to be added). About 15 pairs showed credible benefit
+(@tbl-delta). About 15 pairs showed credible benefit
 (P(δ < 0) ≥ 0.95), 8 credible harm (P(δ < 0) ≤ 0.05, up to δ = +0.27), and 24
 were uncertain. For a new, unobserved pair, the posterior predictive
 probability of benefit was 61% (median risk ratio 0.56, with a very wide
@@ -205,6 +205,45 @@ predictive interval). The heterogeneity was concentrated among restrained
 residents: between-pair variability of $q_k$ far exceeded that of $r_k$
 (logit-scale SD 2.34 vs 1.39). The delta was not associated with the facility's
 observed restraint rate, a proxy for local restraint policy.
+
+```{r}
+#| label: tbl-delta
+#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 90% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package."
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+
+library(restraintsfalls)
+
+draws <- load_fit()
+pair_labels <- prepare_model_data()$meta$pair_labels
+
+qf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(draws, variable = "q_fall")))
+rf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(draws, variable = "r_fall")))
+delta <- qf - rf
+
+tab <- apply(delta, 2, function(v) {
+  h <- bayestestR::hdi(v)
+  c(
+    delta_mean = mean(v),
+    hdi_lo = h$CI_low,
+    hdi_hi = h$CI_high,
+    p_neg = mean(v < 0)
+  )
+}) |>
+  t() |>
+  as.data.frame() |>
+  round(3)
+
+tab <- data.frame(Pair = pair_labels, tab, row.names = NULL)
+names(tab) <- c("Pair", "Mean delta", "HDI lower", "HDI upper", "P(delta < 0)")
+knitr::kable(tab)
+```
+
+<!-- TODO: 47 righe sono tante per il testo principale — valutare se spostare
+la tabella completa in supplementary e tenere nel testo solo una figura
+(forest plot dei delta per coppia) -->
 
 ## Severity-specific outcomes
 
@@ -243,10 +282,11 @@ heterogeneity was not explained by the facility's restraint intensity.
 Our findings are consistent with the Cochrane review's finding that reducing
 restraint use does not increase falls [@möhler2023], and add a longitudinal,
 multi-facility perspective: even where an average association exists, it does
-not generalize. The same review notes, summarizing earlier studies, that
-restraint may even increase fall risk — consistent with the credible-harm
-pairs in our data.
-<!-- TODO: trovare e citare la fonte primaria per "restraint may increase fall risk" (la review la riporta come sintesi di letteratura altrui) --> Studies reporting
+not generalize. The primary studies that distinguished injurious falls found
+restraint associated with more, not fewer, serious fall-related injuries
+[@tinetti1992], and no protective effect in the resident subgroups most
+likely to be restrained [@capezuti1996] — consistent with the credible-harm
+pairs in our data. Studies reporting
 protective average effects may be pooling over sign-varying facility effects.
 <!-- TODO: additional references (falls in NH, restraint prevalence, ecological bias) -->
 
