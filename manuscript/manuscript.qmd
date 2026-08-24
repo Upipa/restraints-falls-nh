@@ -106,9 +106,11 @@ facilities or small facility samples [@tinetti1992; @capezuti1996;
 @fernandezibanez2020]. Two gaps remain.
 First, few studies observe the same facilities longitudinally over many
 years, so secular trends and within-facility variation are poorly understood.
-Second, falls are typically analyzed as a single outcome, although the
+Second, falls are often analyzed as a single, undifferentiated outcome, and
+even when severity is recorded, classification is inconsistent and major
+injuries are substantially underreported [@sanghavi2020] — although the
 clinical stakes differ enormously between a fall without consequences and one
-causing fracture or serious injury; the few studies that distinguish
+causing fracture or serious injury. The few studies that distinguish
 injurious falls have found no protective effect of restraint — and possibly
 more serious fall-related injuries [@tinetti1992; @capezuti1996]. If
 restraint prevents only clinically irrelevant falls, its use as a preventive
