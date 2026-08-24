@@ -93,9 +93,11 @@ keywords:
 Physical restraint use in nursing homes remains common despite longstanding
 ethical and clinical controversy [@hakverdiogluyönt2023]. The most frequently
 cited justification is the prevention of falls and fall-related injuries, yet
-the evidence base is weak and contested: a Cochrane review found no convincing
-evidence that restraint interventions reduce falls, while restraint itself
-carries documented harms [@möhler2023].
+the evidence base is weak and contested: a Cochrane review of interventions
+to reduce restraint use concluded that physical restraints are not an
+effective measure to reduce falls or fall-related injuries — and may even
+increase fall risk — and that restraint prevalence can be reduced without
+increasing falls [@möhler2023].
 
 Most available evidence comes from short randomized trials or cross-sectional
 comparisons of facilities with different restraint rates. Two gaps remain.
@@ -235,9 +237,10 @@ heterogeneity was not explained by the facility's restraint intensity.
 ## Relation to previous work
 
 Our findings are consistent with the Cochrane review's conclusion that
-restraint interventions lack convincing evidence of fall reduction
-[@möhler2023], and add a longitudinal, multi-facility perspective: even where
-an average association exists, it does not generalize. Studies reporting
+physical restraints are not an effective measure to reduce falls or
+fall-related injuries and may even increase fall risk [@möhler2023], and add
+a longitudinal, multi-facility perspective: even where an average association
+exists, it does not generalize. Studies reporting
 protective average effects may be pooling over sign-varying facility effects.
 <!-- TODO: additional references (falls in NH, restraint prevalence, ecological bias) -->
 
