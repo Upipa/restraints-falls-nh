@@ -132,7 +132,27 @@ incidence of falls in the reference period — total falls (1.1), falls with any
 recorded outcome (1.3), and falls with major outcome such as fractures (1.5).
 The fall indicators are nested (1.5 ⊆ 1.3 ⊆ 1.1), so the outcome cells
 (no outcome, minor, major, not fallen) form a multinomial vector over residents
-by successive differences. The analysis set comprises 2,524 records with both
+by successive differences.
+
+The severity classification is defined by the monitoring protocol. Falls
+*without outcome* produced no harm of any kind. Falls with *minor outcome* are
+injuries managed within the nursing home (abrasions, bruises, excoriations);
+falls that required a diagnostic workup but resulted in no fracture are also
+classified as minor. Falls with *major outcome* produced serious injuries or
+fractures requiring diagnostic assessment, and also include loss of
+consciousness or a change in the resident's physical or mental state. When a
+single fall has more than one outcome, only the most severe is recorded.
+
+The term *sector* requires clarification. Facilities may partition the data they
+enter on the Indicare Salute Lab platform into autonomously defined sectors,
+with no constraint on the level of the partition. When a facility comprises
+multiple care homes, the typical — and recommended — partition is one sector
+per home, with data entered separately for each; however, the subdivision is
+purely nominal, and a facility could equally well define sectors as, say,
+floors of a single building. Throughout, we therefore treat the
+facility–sector pair as the analysis unit, understood as the level at which
+the facility chose to organize its own reporting, rather than as a
+standardized organizational entity. The analysis set comprises 2,524 records with both
 restraint and fall data, plus partially observed records contributing marginal
 information (242 restraint-only, 419 falls-only). Facility identifiers were
 anonymized prior to analysis.
@@ -158,24 +178,170 @@ follows a per-pair quadratic time trend on the logit scale,
 $\text{logit}(p_k) = \beta_k + \alpha_k t + \gamma_k t_2$, with $t_2$ the
 orthogonalized, standardized quadratic term.
 
-The three fall outcomes are modeled jointly by factorizing the multinomial
-exactly as Binomial(fall) × Multinomial(outcome | fall). Fall rates are
-partially pooled across pairs, $q_k \sim \text{Beta}(a_q, b_q)$,
-$r_k \sim \text{Beta}(a_r, b_r)$ with $\text{Exp}(1)$ hyperpriors, and outcome
-shares follow a non-centered logistic-normal hierarchy. Having documented
-substantial between-facility heterogeneity in fall rates, we extended the same
-hierarchical structure to all levels of the model for coherence, avoiding
-homogeneity assumptions not supported by the data.
+The three fall outcomes are modeled jointly through the four disjoint,
+exhaustive outcome cells defined in the Data section: fall without outcome,
+fall with minor outcome, fall with major outcome, and no fall. For a resident
+of pair $k$, the cell probabilities under restraint and non-restraint are
+
+$$
+\mathbf{q}_k = \big(q_k\, s_{q,k1},\; q_k\, s_{q,k2},\; q_k\, s_{q,k3},\; 1 - q_k\big),
+\qquad
+\mathbf{r}_k = \big(r_k\, s_{r,k1},\; r_k\, s_{r,k2},\; r_k\, s_{r,k3},\; 1 - r_k\big),
+$$
+
+where $q_k$ and $r_k$ are the probabilities of falling and
+$\mathbf{s}_{q,k} = (s_{q,k1}, s_{q,k2}, s_{q,k3})$ and
+$\mathbf{s}_{r,k} = (s_{r,k1}, s_{r,k2}, s_{r,k3})$ are the shares of the three
+outcome cells *conditional on a fall having occurred* (each summing to one).
+Given the observed restraint count $X$, the multinomial count vector
+$\mathbf{c} = (n_{1.1} - n_{1.3},\; n_{1.3} - n_{1.5},\; n_{1.5},\; n_y - n_{1.1})$
+then follows
+
+$$
+\mathbf{c} \mid X \sim \text{Multinomial}\!\left(n_y,\; \bar{\mathbf{p}}_k\right),
+\qquad
+\bar{\mathbf{p}}_k = \frac{X}{n_x}\,\mathbf{q}_k + \left(1 - \frac{X}{n_x}\right)\mathbf{r}_k .
+$$
+
+This factorization — a binomial on the fall margin times a multinomial on the
+outcome shares given a fall — is exact: the cells are disjoint by
+construction, so no independence assumption across outcomes is needed.
+
+Both sets of parameters are partially pooled across pairs. The fall rates
+follow a Beta hierarchy with weakly informative exponential hyperpriors,
+
+$$
+q_k \sim \text{Beta}(a_q, b_q), \qquad r_k \sim \text{Beta}(a_r, b_r),
+\qquad a_q, b_q, a_r, b_r \stackrel{\text{iid}}{\sim} \text{Exponential}(1),
+$$
+
+and the outcome shares follow a logistic-normal hierarchy, componentwise over
+the three cells $m = 1, 2, 3$:
+
+$$
+\mathbf{s}_{q,k} = \operatorname{softmax}(\boldsymbol\eta_{q,k}),
+\qquad
+\eta_{q,km} \sim \text{Normal}(\mu_{qm},\, \sigma_{qm}),
+\\
+\mu_{qm} \sim \text{Normal}(0, 2),
+\quad
+\sigma_{qm} \sim \text{Exponential}(1),
+$$
+
+and identically for $\mathbf{s}_{r,k}$ with hyperparameters
+$\boldsymbol\mu_r, \boldsymbol\sigma_r$. The model is fitted in non-centered
+form, $\boldsymbol\eta_{q,k} = \boldsymbol\mu_q + \boldsymbol\sigma_q \odot
+\mathbf{z}_{q,k}$ with $\mathbf{z}_{q,k} \sim \text{Normal}(\mathbf{0},
+\mathbf{I})$, because a Dirichlet hierarchy on the shares exhibited
+pathological sampling geometry at the boundary of the simplex. Having
+documented substantial between-facility heterogeneity in fall rates, we
+extended the same hierarchical structure to all levels of the model for
+coherence, avoiding homogeneity assumptions not supported by the data.
+
+```{r}
+#| label: ppc-concordance
+#| include: false
+
+# Posterior predictive concordance: fraction of observations covered by their
+# 95% predictive interval. Requires the full published fit (with per-
+# observation predictive replications); the 210 MB file is not shipped with
+# the package — only the light draws are (see ?load_fit) — so this chunk needs
+# the local file.
+fit_full_path <- c(
+  file.path("..", "inst", "extdata", "fit_multinomial_fac_sec_quad.rds"),
+  file.path("inst", "extdata", "fit_multinomial_fac_sec_quad.rds")
+)
+fit_full_path <- fit_full_path[file.exists(fit_full_path)][1]
+if (is.na(fit_full_path)) {
+  stop(
+    "Full M12 fit not found (expected at inst/extdata/",
+    "fit_multinomial_fac_sec_quad.rds). The PPC concordance values cannot ",
+    "be computed from the light shipped draws."
+  )
+}
+fit_full <- readRDS(fit_full_path)$fit
+sd_multi <- prepare_model_data()$stan_data
+
+# Fraction of observations covered by their 95% predictive interval
+concordance <- function(obs, sims) {
+  lo <- apply(sims, 2, quantile, 0.025)
+  hi <- apply(sims, 2, quantile, 0.975)
+  mean(obs >= lo & obs <= hi)
+}
+
+# Restraint and total falls: group observations as both / restraint-only /
+# falls-only, the ordering reproduced by the model's generated quantities
+wide <- restraints_falls |>
+  dplyr::filter(indicatore %in% c(
+    "2.1 Persone soggette a contenzione fisica",
+    "1.1 Residenti caduti nel periodo di riferimento"
+  )) |>
+  dplyr::mutate(
+    tipo = ifelse(grepl("contenzione", indicatore), "restr", "falls")
+  ) |>
+  dplyr::select(anno, mese, ente, id_settore, tipo, n, d) |>
+  tidyr::pivot_wider(names_from = tipo, values_from = c(n, d))
+
+has_restr <- !is.na(wide$n_restr) & !is.na(wide$d_restr)
+has_falls <- !is.na(wide$n_falls) & !is.na(wide$d_falls)
+both   <- wide[has_restr & has_falls, ]
+x_only <- wide[has_restr & !has_falls, ]
+y_only <- wide[!has_restr & has_falls, ]
+
+obs_x <- c(as.integer(both$n_restr), as.integer(x_only$n_restr))
+obs_y <- c(as.integer(both$n_falls), as.integer(y_only$n_falls))
+pred_x <- as.matrix(fit_full$draws(c("x_rep", "x_only_rep"), format = "matrix"))
+pred_y <- as.matrix(fit_full$draws(c("y_rep", "y_only_rep"), format = "matrix"))
+
+conc_x <- concordance(obs_x, pred_x)
+conc_y <- concordance(obs_y, pred_y)
+
+# Outcome cells: the marginals of the multinomial are binomial, so indicator
+# 1.3 (minor + major) and 1.5 (major) are simulated binomially on the
+# multi-outcome records; the fall probability cancels out of the factorization
+qf <- as.matrix(fit_full$draws("q_fall", format = "matrix"))
+rf <- as.matrix(fit_full$draws("r_fall", format = "matrix"))
+sq <- as.matrix(fit_full$draws("s_q", format = "matrix"))
+sr <- as.matrix(fit_full$draws("s_r", format = "matrix"))
+
+K <- sd_multi$K
+kk <- sd_multi$fs_multi
+nx <- sd_multi$nx_multi
+frac <- ifelse(nx > 0, sd_multi$x_multi / nx, 0)
+n_y <- sd_multi$n_y_multi
+obs_13 <- sd_multi$c_multi[, 2] + sd_multi$c_multi[, 3]
+obs_15 <- sd_multi$c_multi[, 3]
+
+# In the flattened s_q/s_r draws, pair k varies fastest within cell m:
+# cell m of pair k is column (m - 1) * K + k
+p13 <- sweep(qf[, kk] * (sq[, K + kk] + sq[, 2 * K + kk]), 2, frac, `*`) +
+       sweep(rf[, kk] * (sr[, K + kk] + sr[, 2 * K + kk]), 2, 1 - frac, `*`)
+p15 <- sweep(qf[, kk] * sq[, 2 * K + kk], 2, frac, `*`) +
+       sweep(rf[, kk] * sr[, 2 * K + kk], 2, 1 - frac, `*`)
+
+nd <- nrow(p13)
+set.seed(975059978)
+n13_sim <- matrix(
+  rbinom(length(p13), rep(n_y, each = nd), p13), nd
+)
+n15_sim <- matrix(
+  rbinom(length(p15), rep(n_y, each = nd), p15), nd
+)
+
+conc_13 <- concordance(obs_13, n13_sim)
+conc_15 <- concordance(obs_15, n15_sim)
+```
 
 ## Estimation and model development
 
-Models were fitted with NUTS in Stan (via cmdstanr), 4 chains × 2,000
-iterations. Twelve candidate specifications were compared during development
+Models were fitted with NUTS in Stan (via cmdstanr), 4 chains with 1,000
+warmup and 1,000 sampling iterations each (4,000 posterior draws retained). Twelve candidate specifications were compared during development
 using Bayes factors (bridge sampling) where likelihoods were comparable, and
 posterior predictive checks (concordance of 95% predictive intervals with
 observations) throughout. The final model achieved near-perfect concordance on
-restraint (95.3%) and total falls (95.6%), and conservative coverage on the
-sparser outcome indicators (97.6% and 99.8%).
+restraint (`r fmt(100 * conc_x, 1)`%) and total falls
+(`r fmt(100 * conc_y, 1)`%), and conservative coverage on the sparser outcome
+indicators (`r fmt(100 * conc_13, 1)`% and `r fmt(100 * conc_15, 1)`%).
 
 ## Estimands
 
@@ -322,7 +488,23 @@ quality-monitoring data [@sanghavi2020]. Because such underreporting plausibly
 affects restrained and non-restrained residents similarly, the contrasts
 (deltas) are more robust to it than the absolute rates, which are probably
 underestimated. The collapsed likelihood is an
-approximation, albeit validated against the exact model. Finally, the 36
+approximation, albeit validated against the exact model.
+
+Two measurement limitations concern how facilities organize and define their
+own data. First, facility–sector pairs reflect heterogeneous partitioning
+choices: because sectors are autonomously defined (typically one per care home,
+but potentially any subdivision such as floors of a single building), pairs are
+not a standardized organizational unit, and part of the observed between-pair
+heterogeneity may reflect different partitioning conventions rather than
+genuine differences in practice. Second, facilities vary somewhat in what they
+count as physical restraint — for instance, some do not report restraint
+explicitly requested by the resident — introducing a presumably small
+variability in the restraint indicator across facilities. Within a facility,
+however, the working definition of restraint is constant over time, so the
+estimated restraint–fall contrasts remain internally valid for each pair; the
+between-facility definitional variability may instead contribute to the
+observed heterogeneity of effects across pairs. We do not consider this a
+material threat to the validity of our findings. Finally, the 36
 facilities come from a single Italian province, and the predictive statements
 concern that population.
 
