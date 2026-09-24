@@ -64,22 +64,25 @@ abstract: |
     partially pooled fall rates (Beta hierarchy) and outcome shares
     (logistic-normal hierarchy). Model development used Bayes factors and
     posterior predictive checks.
-    
+
     **Results.** The restraint–fall association was strongly heterogeneous across
-    the 47 facility–sector pairs: about 15 showed credible benefit, 8 credible
-    harm, and 24 were uncertain. For a new, unobserved pair, the posterior
-    predictive probability of benefit was 61%. On average, restrained residents
-    fell slightly less (δ = −0.020, 90% HDI [−0.033, −0.005]), but there was no
-    evidence of benefit on major-outcome falls (δ ≈ 0, 90% HDI [−0.003, 0.002]),
-    and on minor-outcome falls more pairs showed credible harm (10) than benefit
-    (6).
+    the `r if (!exists("K")) invisible(source("compute-results.R")); K`
+    facility–sector pairs: about `r n_fall["benefit"]` showed credible
+    benefit, `r n_fall["harm"]` credible harm, and `r n_fall["uncertain"]` were
+    uncertain. For a new, unobserved pair, the posterior predictive probability
+    of benefit was `r round(100 * p_new_benefit)`%. On average, restrained
+    residents fell slightly less (δ = `r fmt(mean(delta_fall))`, 95% HDI
+    `r fmt_hdi(delta_fall)`), but there was no evidence of benefit on
+    major-outcome falls (δ = `r fmt(mean(delta_major))`, 95% HDI
+    `r fmt_hdi(delta_major)`), and on minor-outcome falls more pairs showed
+    credible harm (`r n_minor["harm"]`) than benefit (`r n_minor["benefit"]`).
 
     **Conclusions.** The effect of physical restraint on falls is real but not
     generalizable: its sign and magnitude vary unpredictably across facilities, and
     there is no meaningful evidence of benefit where it matters most — falls with
     major outcomes. Effectiveness as a fall-prevention strategy should be evaluated
     case by case.
-keywords: 
+keywords:
   - physical restraint
   - falls
   - nursing homes
@@ -87,6 +90,17 @@ keywords:
   - quality monitoring
   - ecological study
 ---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Compute all manuscript numbers from the posterior draws. When rendering, the
+# first inline expression in the YAML abstract has already sourced this file
+# (knitr evaluates YAML inline code before any chunk); the guard makes both
+# entry points idempotent.
+if (!exists("K")) source("compute-results.R")
+```
 
 # Background
 
@@ -360,25 +374,27 @@ conditional on a fall having occurred.
 ## Overall association
 
 On average across observed pairs, restrained residents fell slightly less than
-non-restrained ones (δ = −0.020, 90% HDI [−0.033, −0.005]; RR = 0.77 [0.63,
-0.94]). The population-level mean difference was negative with 81% posterior
-probability.
+non-restrained ones (δ = `r fmt(mean(delta_fall))`, 95% HDI
+`r fmt_hdi(delta_fall)`; RR = `r fmt(median(rr_fall), 2)`, 95% HDI
+`r fmt_hdi(rr_fall, 2)`). The population-level mean difference was negative with
+`r round(100 * p_pop_neg)`% posterior probability.
 
 ## Heterogeneity across facilities
 
-The association was strongly heterogeneous across the 47 facility–sector pairs
-(@tbl-delta). About 15 pairs showed credible benefit
-(P(δ < 0) ≥ 0.95), 8 credible harm (P(δ < 0) ≤ 0.05, up to δ = +0.27), and 24
-were uncertain. For a new, unobserved pair, the posterior predictive
-probability of benefit was 61% (median risk ratio 0.56, with a very wide
-predictive interval). The heterogeneity was concentrated among restrained
-residents: between-pair variability of $q_k$ far exceeded that of $r_k$
-(logit-scale SD 2.34 vs 1.39). The delta was not associated with the facility's
+The association was strongly heterogeneous across the `r K` facility–sector
+pairs (@tbl-delta). About `r n_fall["benefit"]` pairs showed credible benefit
+(P(δ < 0) ≥ 0.95), `r n_fall["harm"]` credible harm (P(δ < 0) ≤ 0.05, up to δ =
++`r fmt(max_harm_delta, 2)`), and `r n_fall["uncertain"]` were uncertain. For a
+new, unobserved pair, the posterior predictive probability of benefit was
+`r round(100 * p_new_benefit)`% (median risk ratio `r fmt(rr_new_med, 2)`, with
+a very wide predictive interval). The heterogeneity was concentrated among
+restrained residents: between-pair variability of $q_k$ far exceeded that of
+$r_k$ (logit-scale SD `r fmt(sd_logit_q, 2)` vs `r fmt(sd_logit_r, 2)`). The delta was not associated with the facility's
 observed restraint rate, a proxy for local restraint policy.
 
 ```{r}
 #| label: tbl-delta
-#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 90% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package."
+#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 95% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package."
 #| echo: false
 #| eval: true
 #| message: false
@@ -424,12 +440,15 @@ la tabella completa in supplementary e tenere nel testo solo una figura
 ## Severity-specific outcomes
 
 For major-outcome falls — the clinically important events — the average effect
-was compatible with zero (δ ≈ 0, 90% HDI [−0.003, 0.002]) and predictive
-evidence of benefit was weak (P = 0.60 for a new pair). For minor-outcome
-falls, more pairs showed credible harm (10) than credible benefit (6), and the
-predictive probability of reduction was 0.52. Conditional on a fall having
-occurred, the share of minor outcomes tended to increase with restraint (72%
-posterior probability), while the share of major outcomes was unchanged (52%).
+was compatible with zero (δ = `r fmt(mean(delta_major))`, 95% HDI
+`r fmt_hdi(delta_major)`) and predictive evidence of benefit was weak (P =
+`r fmt(p_major_new_red, 2)` for a new pair). For minor-outcome falls, more
+pairs showed credible harm (`r n_minor["harm"]`) than credible benefit
+(`r n_minor["benefit"]`), and the predictive probability of reduction was
+`r fmt(p_minor_new_red, 2)`. Conditional on a fall having occurred, the share
+of minor outcomes tended to increase with restraint
+(`r round(100 * p_share_minor_incr)`% posterior probability), while the share
+of major outcomes was unchanged (`r round(100 * p_share_major_incr)`%).
 
 # Discussion
 
@@ -471,8 +490,9 @@ protective average effects may be pooling over sign-varying facility effects.
 A possible defense of restraint is that even if those who fall get hurt more
 often, the total number of seriously injured fallers decreases. Our
 decomposition tests exactly this: the per-resident rate of major-outcome falls
-did not decrease (P = 0.60, HDI spanning zero), and for minor outcomes the
-predictive mean was slightly positive. Granting the premise does not rescue the
+did not decrease (P = `r fmt(p_major_new_red, 2)`, HDI spanning zero), and for
+minor outcomes the predictive mean was slightly positive
+(`r fmt(mean(delta_minor_new))`). Granting the premise does not rescue the
 conclusion.
 
 ## Limitations
