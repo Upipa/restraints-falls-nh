@@ -1422,16 +1422,16 @@ $
 come in M10/M11; **logistica-normale** per le quote di esito — nessun
 simplesso, tutti i parametri nascono non vincolati:
 
-$
+$$
 q_{\text{fall},k} \sim \text{Beta}(a_q, b_q), \quad
 r_{\text{fall},k} \sim \text{Beta}(a_r, b_r)
-$
+$$
 
-$
+$$
 s_{q,k} = \text{softmax}(\eta_{q,k}), \quad \eta_{q,k} \sim \text{Normal}(\mu_q, \sigma_q);
 \qquad
 s_{r,k} = \text{softmax}(\eta_{r,k}), \quad \eta_{r,k} \sim \text{Normal}(\mu_r, \sigma_r)
-$
+$$
 
 con $\mu \sim \text{Normal}(0, 2)$, $\sigma \sim \text{Exp}(1)$. La versione
 con Dirichlet su simplesso aveva geometria patologica al bordo (100% di
