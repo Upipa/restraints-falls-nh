@@ -58,8 +58,8 @@ tab_outcome <- data.frame(
   ) |>
     sapply(function(bf) {
       if (bf >= 10) "Forte a favore"
-      else if (bf >= 3) "Moderata a favore"
-      else if (bf > 1 / 3) "Inconclusiva"
+      else if (bf >= sqrt(10)) "Moderata a favore"
+      else if (between(bf, 1 / sqrt(10), sqrt(10))) "Inconclusiva"
       else {
         ratio <- gsub("\\.", ",", sprintf("%.2g", 1 / bf))
         if (bf > 1 / 10) paste0("Moderata contro (\u2248 ", ratio, ":1)")
