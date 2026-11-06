@@ -115,7 +115,7 @@ knitr::kable(tab_outcome)
 #| fig-height: 4.9
 ggplot(fp, aes(x = m, y = pair, color = classe)) +
   geom_vline(xintercept = 0, linetype = 2, linewidth = 0.3) +
-  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, linewidth = 0.4, orientation = "y") +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, linewidth = 0.4) +
   geom_point(size = 1.2) +
   labs(
     x = expression(delta == q - r ~ "(cadute totali: differenza di probabilit\u00e0 di caduta nel periodo di riferimento, contenuti \u2212 non contenuti)"),
