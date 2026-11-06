@@ -1,0 +1,104 @@
+---
+format: pptx
+lang: it
+---
+
+```{r}
+#| label: setup
+#| include: false
+source("compute-results.R")
+
+library(ggplot2)
+
+pair_labels <- prepare_model_data()$meta$pair_labels
+
+rr_row <- function(v) {
+  h <- bayestestR::hdi(v)
+  sprintf("%.2f [%.2f\u2013%.2f]", median(v), h$CI_low, h$CI_high)
+}
+
+tab_outcome <- data.frame(
+  Outcome = c(
+    "Cadute totali",
+    "Cadute senza esito clinico",
+    "Cadute con esito minore",
+    "Cadute con esito maggiore"
+  ),
+  `RR popolazione [95% HDI]` = c(
+    rr_row(pop_rr_fall),
+    rr_row(pop_rr_none),
+    rr_row(pop_rr_minor),
+    rr_row(pop_rr_major)
+  ),
+  `Bayes factor` = c("4,3", "47,8", "0,09", "1,1"),
+  Evidenza = c(
+    "Moderata a favore",
+    "Forte a favore",
+    "Forte contro (\u2248 11:1)",
+    "Inconclusiva"
+  ),
+  check.names = FALSE
+)
+
+# Forest plot: delta per coppia ente x settore
+fp <- lapply(seq_len(ncol(delta_pairs)), function(k) {
+  v <- delta_pairs[, k]
+  h <- bayestestR::hdi(v)
+  data.frame(
+    pair = pair_labels[k],
+    m = mean(v), lo = h$CI_low, hi = h$CI_high,
+    p_neg = mean(v < 0)
+  )
+}) |> do.call(what = rbind)
+
+fp$classe <- factor(
+  ifelse(fp$p_neg >= 0.95, "Beneficio credibile",
+    ifelse(fp$p_neg <= 0.05, "Danno credibile", "Incerto")
+  ),
+  levels = c("Beneficio credibile", "Incerto", "Danno credibile")
+)
+fp <- fp[order(fp$m), ]
+fp$pair <- factor(fp$pair, levels = fp$pair)
+```
+
+## Obiettivo e metodo
+
+**La contenzione fisica previene le cadute nelle RSA? E soprattutto: previene quelle clinicamente rilevanti?**
+
+- Tre outcome annidati: cadute totali ⊇ con esito ⊇ con esito maggiore (fratture o esiti gravi)
+- Modello bayesiano multinomiale gerarchico (Stan): tasso di caduta dei contenuti ($q$) e non contenuti ($r$) per ciascuna delle 47 coppie ente × settore (APSP × singola struttura); trend temporale della contenzione
+- Validazione: gli intervalli predittivi al 95% del modello contengono effettivamente ~95% delle osservazioni (copertura pari al nominale)
+
+## Risultati: la riduzione riguarda solo le cadute senza esito clinico
+
+```{r}
+#| label: tab-outcome
+#| echo: false
+knitr::kable(tab_outcome)
+```
+
+## Ma l'effetto non è generalizzabile: 15 beneficio / 8 danno / 24 incerte
+
+```{r}
+#| label: fig-forest
+#| echo: false
+#| fig-width: 9
+#| fig-height: 4.9
+ggplot(fp, aes(x = m, y = pair, color = classe)) +
+  geom_vline(xintercept = 0, linetype = 2, linewidth = 0.3) +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, linewidth = 0.4, orientation = "y") +
+  geom_point(size = 1.2) +
+  labs(
+    x = expression(delta == q - r ~ "(cadute totali: differenza di probabilit\u00e0 di caduta nel periodo di riferimento, contenuti \u2212 non contenuti)"),
+    y = NULL, color = NULL,
+    caption = "SD del tasso di caduta tra coppie (scala logit): 2,4 nei contenuti vs 1,4 nei non contenuti\n\u2192 il rischio basale \u00e8 stabile tra strutture, varia l'esito di chi \u00e8 contenuto"
+  ) +
+  theme_minimal(base_size = 9) +
+  theme(legend.position = "top", plot.caption = element_text(size = 9))
+```
+
+## Conclusioni
+
+- La contenzione riduce le cadute **senza rilevanza clinica**; su quelle con esito minore i dati suggeriscono anzi un **aumento** del rischio, nessun beneficio dimostrabile sull'esito maggiore
+- L'effetto medio è piccolo (δ ≈ −0,02) e di **segno imprevedibile tra strutture**: per una nuova struttura P(beneficio) ≈ 62%
+- Messaggio HTA: non è una **strategia preventiva generalizzabile**; l'efficacia va valutata struttura per struttura. Limite: disegno ecologico, causalità inversa non escludibile
