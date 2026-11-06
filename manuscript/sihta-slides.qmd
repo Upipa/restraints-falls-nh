@@ -50,7 +50,7 @@ tab_outcome <- data.frame(
     bf_mean_fall, bf_mean_none, bf_mean_minor, bf_mean_major
   ) |>
     sapply(function(x) {
-      s <- if (x >= 10) sprintf("%.1f", x) else if (x >= 1) sprintf("%.1f", x) else sprintf("%.2f", x)
+      s <- if (x >= 1) sprintf("%.1f", x) else sprintf("%.2f", x)
       gsub("\\.", ",", s)
     }),
   Evidenza = c(
