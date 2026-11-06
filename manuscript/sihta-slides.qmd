@@ -8,7 +8,7 @@ lang: it
 #| include: false
 source("compute-results.R")
 
-library(ggplot2)
+library(tidyverse)
 
 pair_labels <- prepare_model_data()$meta$pair_labels
 
