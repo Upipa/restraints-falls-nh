@@ -120,10 +120,11 @@ ggplot(fp, aes(x = m, y = pair, color = classe)) +
   labs(
     x = expression(delta == q - r ~ "(cadute totali: differenza di probabilit\u00e0 di caduta nel periodo di riferimento, contenuti \u2212 non contenuti)"),
     y = NULL, color = NULL,
-    caption = "SD del tasso di caduta tra coppie (scala logit): 2,4 nei contenuti vs 1,4 nei non contenuti\n\u2192 il rischio basale \u00e8 stabile tra strutture, varia l'esito di chi \u00e8 contenuto"
+    title = "SD del tasso di caduta tra coppie (scala logit): 2,4 nei contenuti vs 1,4 nei non contenuti",
+    subtitle = "Il rischio basale \u00e8 stabile tra strutture, varia l'esito di chi \u00e8 contenuto",
+    caption = "I dati provengono dalla piattaforma IndicareSaluteLab"
   ) +
-  theme_minimal(base_size = 9) +
-  theme(legend.position = "top", plot.caption = element_text(size = 9))
+  theme_minimal(base_size = 9)
 ```
 
 ## Conclusioni
