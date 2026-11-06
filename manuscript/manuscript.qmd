@@ -70,11 +70,15 @@ abstract: |
     facility–sector pairs: about `r n_fall["benefit"]` showed credible
     benefit, `r n_fall["harm"]` credible harm, and `r n_fall["uncertain"]` were
     uncertain. For a new, unobserved pair, the posterior predictive probability
-    of benefit was `r round(100 * p_new_benefit)`%. On average, restrained
-    residents fell slightly less (δ = `r fmt(mean(delta_fall))`, 95% HDI
-    `r fmt_hdi(delta_fall)`), but there was no evidence of benefit on
-    major-outcome falls (δ = `r fmt(mean(delta_major))`, 95% HDI
-    `r fmt_hdi(delta_major)`), and on minor-outcome falls more pairs showed
+    of benefit was `r round(100 * p_new_benefit)`%, and the population mean
+    difference was negative with `r fmt(p_mean_fall, 2)` posterior probability
+    (Bayes factor `r fmt(bf_mean_fall, 1)`). At the population level, restrained
+    residents fell slightly less (δ = `r fmt(mean(pop_delta_fall))`, 95%
+    HDI `r fmt_hdi(pop_delta_fall)`), but the reduction was concentrated in falls
+    without clinical consequences (Bayes factor `r fmt(bf_mean_none, 1)`),
+    there was no evidence of benefit on
+    major-outcome falls (δ = `r fmt(mean(ed_major), 4)`, 95% HDI
+    `r fmt_hdi(ed_major, 4)`), and on minor-outcome falls more pairs showed
     credible harm (`r n_minor["harm"]`) than benefit (`r n_minor["benefit"]`).
 
     **Conclusions.** The effect of physical restraint on falls is real but not
@@ -359,25 +363,39 @@ indicators (`r fmt(100 * conc_13, 1)`% and `r fmt(100 * conc_15, 1)`%).
 
 ## Estimands
 
-We report absolute differences in fall probabilities between restrained and
-non-restrained residents (δ), at three levels: the realized mean across
-observed pairs, the population mean under the hierarchy, and the posterior
-predictive distribution for a new, unobserved pair (including the probability
-of any benefit). Relative effects are summarized by medians, because the
-posterior mean of the population-level ratio does not exist (the posterior of
-the Beta shape parameter retains mass below 1, where the expectation diverges).
+Unless otherwise stated, in-text estimates refer to the population level: the
+mean fall rates of restrained and non-restrained residents under the
+hierarchy, and their absolute difference (δ). Relative effects are summarized
+by medians, because the posterior mean of the population-level ratio does not
+exist (the posterior of the Beta shape parameter retains mass below 1, where
+the expectation diverges). Realized per-pair differences are reported in
+@tbl-delta, and the posterior predictive distribution for a new, unobserved
+pair summarizes how effects are expected to vary across facilities.
 The same analysis is reported per outcome cell, both per resident and
-conditional on a fall having occurred.
+conditional on a fall having occurred. Finally, to test whether the association
+is systematically directional at the population level, we compared two
+composite hypotheses on the hyperparameters — H1, that the population mean fall
+rate is lower among restrained residents, versus H0, that it is not — via a
+Bayes factor. Because restrained and non-restrained rates are exchangeable
+under the prior, the prior odds of the two hypotheses are exactly one and the
+Bayes factor reduces to the posterior odds. The Bayes factor, the posterior
+mean difference, and the posterior predictive probability answer complementary
+questions — whether an average directional effect exists, how large it is, and
+how often a single facility would benefit — and are reported together
+throughout.
 
 # Results
 
 ## Overall association
 
-On average across observed pairs, restrained residents fell slightly less than
-non-restrained ones (δ = `r fmt(mean(delta_fall))`, 95% HDI
-`r fmt_hdi(delta_fall)`; RR = `r fmt(median(rr_fall), 2)`, 95% HDI
-`r fmt_hdi(rr_fall, 2)`). The population-level mean difference was negative with
-`r round(100 * p_pop_neg)`% posterior probability.
+At the population level, restrained residents fell slightly less than
+non-restrained ones (δ = `r fmt(mean(pop_delta_fall))`, 95% HDI
+`r fmt_hdi(pop_delta_fall)`; median RR = `r fmt(median(pop_rr_fall), 2)`, 95%
+HDI `r fmt_hdi(pop_rr_fall, 2)`). The mean difference was negative with
+`r round(100 * p_pop_neg)`% posterior probability (Bayes factor
+`r fmt(bf_mean_fall, 1)` against the null of no average directional effect).
+An estimated `r round(100 * p_new_benefit)`% of facility–sector pairs in the
+population are expected to experience fewer falls among restrained residents.
 
 ## Heterogeneity across facilities
 
@@ -440,12 +458,23 @@ la tabella completa in supplementary e tenere nel testo solo una figura
 ## Severity-specific outcomes
 
 For major-outcome falls — the clinically important events — the average effect
-was compatible with zero (δ = `r fmt(mean(delta_major))`, 95% HDI
-`r fmt_hdi(delta_major)`) and predictive evidence of benefit was weak (P =
+was compatible with zero (δ = `r fmt(mean(ed_major), 4)`, 95% HDI
+`r fmt_hdi(ed_major, 4)`) and predictive evidence of benefit was weak (P =
 `r fmt(p_major_new_red, 2)` for a new pair). For minor-outcome falls, more
 pairs showed credible harm (`r n_minor["harm"]`) than credible benefit
 (`r n_minor["benefit"]`), and the predictive probability of reduction was
-`r fmt(p_minor_new_red, 2)`. Conditional on a fall having occurred, the share
+`r fmt(p_minor_new_red, 2)`. For the average effect, the evidence pointed
+against any benefit on minor-outcome falls (posterior probability of a negative
+mean difference `r fmt(p_mean_minor, 2)`; Bayes factor
+`r fmt(1 / bf_mean_minor, 1)` in favor of no reduction) and was inconclusive
+for major-outcome falls (`r fmt(p_mean_major, 2)`; Bayes factor
+`r fmt(bf_mean_major, 1)`). By contrast, falls without clinical consequences —
+the complement of the two outcome cells — were the only outcome with strong
+directional evidence: at the population level, restrained residents
+experienced fewer of them (δ = `r fmt(mean(ed_none))`, 95% HDI
+`r fmt_hdi(ed_none)`), with `r fmt(p_mean_none, 2)` posterior probability of
+a negative mean difference (Bayes factor `r fmt(bf_mean_none, 1)`). Conditional on a
+fall having occurred, the share
 of minor outcomes tended to increase with restraint
 (`r round(100 * p_share_minor_incr)`% posterior probability), while the share
 of major outcomes was unchanged (`r round(100 * p_share_major_incr)`%).
@@ -455,12 +484,35 @@ of major outcomes was unchanged (`r round(100 * p_share_major_incr)`%).
 ## Principal findings
 
 Across a decade of monitoring data, physical restraint was associated with a
-modest average reduction in falls, but the association was strongly
-heterogeneous: it reversed sign in a substantial minority of facility–sector
-pairs, and the probability that a new facility would see any benefit was barely
-above chance. Critically, there was no evidence of benefit on falls with major
-outcomes — the events that restraint is meant to prevent — and on
-minor-outcome falls the balance tilted toward harm.
+modest average reduction in falls, with moderate Bayes-factor evidence
+(`r fmt(bf_mean_fall, 1)`) of a systematic negative direction at the population
+level. The association was nevertheless strongly heterogeneous — it reversed
+sign in a substantial minority of facility–sector pairs, and only an estimated
+`r round(100 * p_new_benefit)`% of pairs benefit — so the population tendency
+does not license predictions for any individual facility. Critically, for falls
+with major outcomes — the events that restraint is meant to prevent — the
+average effect was null and the directional evidence inconclusive, while for
+minor-outcome falls the evidence pointed against any average benefit (Bayes
+factor `r fmt(1 / bf_mean_minor, 1)` in favor of no reduction). The only
+outcome with strong evidence of reduction was falls without clinical
+consequences (Bayes factor `r fmt(bf_mean_none, 1)`).
+
+## Direction, frequency, and magnitude are distinct questions
+
+Strong evidence for a directional effect must not be read as evidence of a
+material one. Even for total falls, where the Bayes factor was largest, the
+average benefit was δ = `r fmt(mean(pop_delta_fall))` against a baseline risk of
+`r fmt(mean(pop_base_fall), 2)` — roughly two falls avoided per 100
+resident-periods, on average and before accounting for heterogeneity. For
+major-outcome falls the average benefit was essentially zero
+(δ = `r fmt(mean(ed_major), 4)` on a baseline of
+`r fmt(mean(pop_base_major), 3)`). The three summaries reported in this paper
+answer different questions — the Bayes factor whether a population-level
+directional effect exists, the predictive probability how often a single
+facility would benefit, and the mean δ how large the benefit is on average —
+and policy should weigh all three. Here, a real but small and unpredictable
+average effect, concentrated on falls without clinical consequences, does not
+support restraint as a general fall-prevention strategy.
 
 ## The heterogeneity is the finding
 
