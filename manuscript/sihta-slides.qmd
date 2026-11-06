@@ -14,7 +14,17 @@ pair_labels <- prepare_model_data()$meta$pair_labels
 
 rr_row <- function(v) {
   h <- bayestestR::hdi(v)
-  sprintf("%.2f [%.2f\u2013%.2f]", median(v), h$CI_low, h$CI_high)
+  sprintf("%.2f [%.2f\u2013%.2f]", median(v), h$CI_low, h$CI_high) |>
+    gsub(pattern = "\\.", replacement = ",")
+}
+
+d_row <- function(v, digits = 3) {
+  h <- bayestestR::hdi(v)
+  sprintf(
+    paste0("%.", digits, "f [%.", digits, "f \u2013 %.", digits, "f]"),
+    mean(v), h$CI_low, h$CI_high
+  ) |>
+    gsub(pattern = "\\.", replacement = ",")
 }
 
 tab_outcome <- data.frame(
@@ -23,6 +33,12 @@ tab_outcome <- data.frame(
     "Cadute senza esito clinico",
     "Cadute con esito minore",
     "Cadute con esito maggiore"
+  ),
+  `δ popolazione [95% HDI]` = c(
+    d_row(pop_delta_fall),
+    d_row(ed_none),
+    d_row(ed_minor),
+    d_row(ed_major, 4)
   ),
   `RR popolazione [95% HDI]` = c(
     rr_row(pop_rr_fall),
