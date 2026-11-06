@@ -27,6 +27,10 @@ d_row <- function(v, digits = 3) {
     gsub(pattern = "\\.", replacement = ",")
 }
 
+num <- function(x, digits = 1) {
+  gsub("\\.", ",", formatC(x, format = "f", digits = digits))
+}
+
 tab_outcome <- data.frame(
   Outcome = c(
     "Cadute totali",
@@ -106,7 +110,7 @@ fp$pair <- factor(fp$pair, levels = fp$pair)
 knitr::kable(tab_outcome)
 ```
 
-## Ma l'effetto non è generalizzabile: 15 beneficio / 8 danno / 24 incerte
+## Ma l'effetto non è generalizzabile: `r n_fall["benefit"]` beneficio / `r n_fall["harm"]` danno / `r n_fall["uncertain"]` incerte
 
 ```{r}
 #| label: fig-forest
@@ -120,7 +124,10 @@ ggplot(fp, aes(x = m, y = pair, color = classe)) +
   labs(
     x = expression(delta == q - r ~ "(cadute totali: differenza di probabilit\u00e0 di caduta nel periodo di riferimento, contenuti \u2212 non contenuti)"),
     y = NULL, color = NULL,
-    title = "SD del tasso di caduta tra coppie (scala logit): 2,4 nei contenuti vs 1,4 nei non contenuti",
+    title = sprintf(
+      "SD del tasso di caduta tra coppie (scala logit): %s nei contenuti vs %s nei non contenuti",
+      num(sd_logit_q), num(sd_logit_r)
+    ),
     subtitle = "Il rischio basale \u00e8 stabile tra strutture, varia l'esito di chi \u00e8 contenuto",
     caption = "I dati provengono dalla piattaforma IndicareSaluteLab"
   ) +
@@ -130,5 +137,5 @@ ggplot(fp, aes(x = m, y = pair, color = classe)) +
 ## Conclusioni
 
 - La contenzione riduce le cadute **senza rilevanza clinica**; su quelle con esito minore i dati suggeriscono anzi un **aumento** del rischio, nessun beneficio dimostrabile sull'esito maggiore
-- L'effetto medio è piccolo (δ ≈ −0,02) e di **segno imprevedibile tra strutture**: per una nuova struttura P(beneficio) ≈ 62%
+- L'effetto medio è piccolo (δ ≈ `r num(mean(pop_delta_fall), 2)`) e di **segno imprevedibile tra strutture**: per una nuova struttura P(beneficio) ≈ `r round(100 * p_new_benefit)`%
 - Messaggio HTA: non è una **strategia preventiva generalizzabile**; l'efficacia va valutata struttura per struttura. Limite: disegno ecologico, causalità inversa non escludibile
