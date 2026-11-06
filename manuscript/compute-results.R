@@ -42,8 +42,11 @@ p_new_benefit <- mean(q_new < r_new)
 rr_new_med <- median(q_new / r_new)
 
 # New-pair outcome shares from the logistic-normal hierarchy
+# (rowwise max via vectorized pmax, no apply)
 softmax_rows <- function(m) {
-  t(apply(m, 1, function(x) exp(x - max(x)) / sum(exp(x - max(x)))))
+  mx <- do.call(pmax, as.data.frame(m))
+  e <- exp(m - mx)
+  e / rowSums(e)
 }
 s_q_new <- softmax_rows(
   getm("mu_q") +
@@ -148,12 +151,17 @@ n_minor <- count_pairs(delta_minor_pairs)
 max_harm_delta <- max(colMeans(delta_pairs)[colMeans(delta_pairs < 0) <= 0.05])
 
 # Between-pair heterogeneity of fall rates (logit-scale SD, posterior mean)
-sd_logit_q <- mean(apply(getm("q_fall"), 1, function(v) sd(qlogis(v))))
-sd_logit_r <- mean(apply(getm("r_fall"), 1, function(v) sd(qlogis(v))))
+# Rowwise SD vectorized: sqrt(mean squared deviation) with Bessel correction
+row_sd <- function(m) {
+  lq <- qlogis(m)
+  sqrt(rowSums((lq - rowMeans(lq))^2) / (ncol(m) - 1))
+}
+sd_logit_q <- mean(row_sd(getm("q_fall")))
+sd_logit_r <- mean(row_sd(getm("r_fall")))
 
 # Formatting helpers (95% HDI is the bayestestR default)
 fmt <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
 fmt_hdi <- function(v, digits = 3) {
   h <- bayestestR::hdi(v)
-  paste0("[", fmt(h$CI_low, digits), ", ", fmt(h$CI_high, digits), "]")
+  stringr::str_glue("[{fmt(h$CI_low, digits)}, {fmt(h$CI_high, digits)}]")
 }
