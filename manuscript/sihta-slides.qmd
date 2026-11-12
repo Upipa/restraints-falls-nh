@@ -1,5 +1,7 @@
 ---
-format: pptx
+format:
+  pptx:
+    reference-doc: Format slide Congresso Sihta 2026.pptx
 lang: it
 ---
 
