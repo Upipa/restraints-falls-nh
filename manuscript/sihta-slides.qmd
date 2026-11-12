@@ -139,4 +139,4 @@ ggplot(fp, aes(x = m, y = pair, color = classe)) +
 
 - La contenzione riduce le cadute **senza rilevanza clinica**; su quelle con esito minore i dati suggeriscono anzi un **aumento** del rischio, nessun beneficio dimostrabile sull'esito maggiore
 - L'effetto medio è piccolo (δ ≈ `r num(mean(pop_delta_fall), 2)`) e di **segno imprevedibile tra strutture**: per una nuova struttura P(beneficio) ≈ `r round(100 * p_new_benefit)`%
-- Messaggio HTA: non è una **strategia preventiva generalizzabile**; l'efficacia va valutata struttura per struttura. Limite: disegno ecologico, causalità inversa non escludibile
+- Messaggio HTA: non è una **strategia preventiva generalizzabile**; l'efficacia va valutata residente per residente. Limite: disegno ecologico, causalità inversa non escludibile
