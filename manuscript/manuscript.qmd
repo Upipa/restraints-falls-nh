@@ -383,7 +383,10 @@ composite hypotheses on the hyperparameters — H1, that the population mean fal
 rate is lower among restrained residents, versus H0, that it is not — via a
 Bayes factor. Because restrained and non-restrained rates are exchangeable
 under the prior, the prior odds of the two hypotheses are exactly one and the
-Bayes factor reduces to the posterior odds. The Bayes factor, the posterior
+Bayes factor reduces to the posterior odds. The same holds for the
+outcome-cell rates: the restrained and non-restrained cell rates are products
+of independent, exchangeable hierarchies (fall rate and outcome shares), and
+are therefore themselves exchangeable under the prior. The Bayes factor, the posterior
 mean difference, and the posterior predictive probability answer complementary
 questions — whether an average directional effect exists, how large it is, and
 how often a single facility would benefit — and are reported together
@@ -398,7 +401,9 @@ non-restrained ones (δ = `r fmt(mean(pop_delta_fall))`, 95% HDI
 `r fmt_hdi(pop_delta_fall)`; median risk ratio (RR) = `r fmt(mean(rr_med_new), 2)`, 95%
 HDI `r fmt_hdi(rr_med_new, 2)`). The mean difference was negative with
 `r round(100 * p_pop_neg)`% posterior probability (Bayes factor
-`r fmt(bf_mean_fall, 1)` against the null of no average directional effect).
+`r fmt(bf_mean_fall, 1)` against the composite null of no reduction, i.e. a
+population mean fall rate among restrained residents equal to or higher than
+among non-restrained residents).
 An estimated `r round(100 * p_new_benefit)`% of facility–sector pairs in the
 population are expected to experience fewer falls among restrained residents.
 
