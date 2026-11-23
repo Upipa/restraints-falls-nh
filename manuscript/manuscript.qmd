@@ -756,6 +756,9 @@ nursing homes participating in the quality-monitoring system.
 
 # References
 
+::: {#refs}
+:::
+
 # Supplementary material {.unnumbered}
 
 ```{r}
