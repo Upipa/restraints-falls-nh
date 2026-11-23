@@ -359,11 +359,15 @@ med_ess_rest <- median(pair_summ$ess_bulk[pair_summ$pair_idx != pair_low$pair_id
 
 ## Estimation and model development
 
-Models were fitted with NUTS in Stan (via cmdstanr), 4 chains with 1,000
+Models were fitted with NUTS in Stan [@carpenter2017stan], via the cmdstanr
+interface [@gabry2023cmdstanr], with 4 chains of 1,000
 warmup and 1,000 sampling iterations each (4,000 posterior draws retained). Twelve candidate specifications were compared during development
-using Bayes factors (bridge sampling) where likelihoods were comparable, and
+using Bayes factors (bridge sampling [@gronau2017bridgesampling], implemented
+in the bridgesampling package [@gronau2020bridgesamplingpkg]) where likelihoods were comparable, and
 posterior predictive checks (concordance of 95% predictive intervals with
-observations) throughout. The final model achieved near-perfect concordance on
+observations) throughout. Highest density intervals were computed with
+bayestestR [@makowski2019bayestestr]; all analyses were run in R 4.6.1
+[@rcore2026]. The final model achieved near-perfect concordance on
 restraint (`r fmt(100 * conc_x, 1)`%) and total falls
 (`r fmt(100 * conc_y, 1)`%), and conservative coverage on the sparser outcome
 indicators (`r fmt(100 * conc_13, 1)`% and `r fmt(100 * conc_15, 1)`%).
