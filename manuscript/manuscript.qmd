@@ -716,6 +716,28 @@ minor outcomes the predictive mean was slightly positive
 (`r fmt(mean(delta_minor_new))`). Granting the premise does not rescue the
 conclusion.
 
+## Restraint shifts the composition of fall outcomes, not their severity
+
+The conditional shares add a complementary reading. Given that a fall occurs,
+the probability that it has a major outcome is essentially the same for
+restrained and non-restrained residents (expected share difference
+`r fmt(mean(share_delta_major))`, 95% HDI `r fmt_hdi(share_delta_major)`).
+What changes is the exchange between the other two cells: among restrained
+fallers, the share of falls without consequences is lower
+(`r fmt(mean(share_delta_none))`, 95% HDI `r fmt_hdi(share_delta_none)`) and
+the share of minor-outcome falls is correspondingly higher
+(`r fmt(mean(share_delta_minor))`, 95% HDI `r fmt_hdi(share_delta_minor)`).
+In this observational sense restraint "converts" falls that would have ended
+without consequences into falls with minor consequences, while leaving the
+prognosis that matters most — the probability of a major outcome — untouched.
+The quotation marks are necessary: with ecological data we observe the
+composition of outcomes among fallers, not the transformation of individual
+falls, and the shift could reflect selection (restrained residents who fall
+may be a different mix — for instance, the more agitated or those falling
+while attempting to walk) rather than a mechanism of restraint itself.
+Either way, the implication for prevention is the same: restraint reduces the
+number of falls but does not improve what happens when a fall occurs.
+
 ## Limitations
 
 The design is ecological: the unit is the facility–month, not the resident, so
