@@ -39,7 +39,28 @@ ndraw <- length(a_q)
 q_new <- rbeta(ndraw, a_q, b_q)
 r_new <- rbeta(ndraw, a_r, b_r)
 p_new_benefit <- mean(q_new < r_new)
-rr_new_med <- median(q_new / r_new)
+
+# Risk ratio for a new pair: E[q_new/r_new | theta] does not exist (the
+# expected reciprocal of r_new diverges whenever a_r < 1, and the posterior
+# of a_r retains mass below 1), so the predictive ratio is summarized by its
+# median given theta — always well-defined, though not in closed form — and
+# estimated by the posterior mean of that conditional median. This parallels
+# delta, the posterior mean of the conditional mean difference. Solved
+# numerically per draw: the median m satisfies E[F_q(m * r_new)] = 1/2.
+set.seed(4412)
+u_rr <- runif(4000)
+rr_med_new <- vapply(
+  seq_along(a_q),
+  function(i) {
+    r <- qbeta(u_rr, a_r[i], b_r[i])
+    uniroot(
+      function(m) mean(pbeta(m * r, a_q[i], b_q[i])) - 0.5,
+      c(1e-6, 1e4),
+      tol = 1e-4
+    )$root
+  },
+  numeric(1)
+)
 
 # New-pair outcome shares from the logistic-normal hierarchy
 # (rowwise max via vectorized pmax, no apply)
