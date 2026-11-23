@@ -416,8 +416,7 @@ pairs (@fig-delta; per-pair values in @tbl-delta). About `r n_fall["benefit"]` p
 new, unobserved pair, the posterior predictive probability of benefit was
 `r round(100 * p_new_benefit)`% (median RR `r fmt(mean(rr_med_new), 2)`). The heterogeneity was concentrated among
 restrained residents: between-pair variability of $q_k$ far exceeded that of
-$r_k$ (logit-scale SD `r fmt(sd_logit_q, 2)` vs `r fmt(sd_logit_r, 2)`). The delta was not associated with the facility's
-observed restraint rate, a proxy for local restraint policy.
+$r_k$ (logit-scale SD `r fmt(sd_logit_q, 2)` vs `r fmt(sd_logit_r, 2)`).
 
 ```{r}
 #| label: fig-delta
@@ -576,8 +575,7 @@ while the baseline risk of non-restrained residents was comparatively stable
 across facilities. This pattern suggests that what differs between facilities
 is not the residents' underlying risk but what happens to restrained
 residents — plausibly local restraint practices or selection of who is
-restrained. Our ecological design cannot distinguish these mechanisms, and the
-heterogeneity was not explained by the facility's restraint intensity.
+restrained. Our ecological design cannot distinguish these mechanisms.
 
 ## Relation to previous work
 
