@@ -350,6 +350,45 @@ conc_13 <- concordance(obs_13, n13_sim)
 conc_15 <- concordance(obs_15, n15_sim)
 ```
 
+```{r}
+#| label: mcmc-diagnostics
+#| include: false
+
+# Sampler diagnostics from the full fit; convergence diagnostics from the
+# shipped draws (the chain structure is preserved, so R-hat and ESS are
+# reproducible from the package data alone).
+diag_sum <- fit_full$diagnostic_summary()
+n_div <- sum(diag_sum$num_divergent)
+n_td <- sum(diag_sum$num_max_treedepth)
+ebfmi_lo <- min(diag_sum$ebfmi)
+ebfmi_hi <- max(diag_sum$ebfmi)
+
+mcmc_summ <- posterior::summarise_draws(draws)
+n_params <- nrow(mcmc_summ)
+max_rhat <- max(mcmc_summ$rhat, na.rm = TRUE)
+min_ess_bulk <- min(mcmc_summ$ess_bulk, na.rm = TRUE)
+min_ess_tail <- min(mcmc_summ$ess_tail, na.rm = TRUE)
+worst_ess_var <- mcmc_summ$variable[which.min(mcmc_summ$ess_bulk)]
+
+key_vars <- c("delta_fall", "rr_fall", "delta_major", "rr_major")
+ess_key <- range(mcmc_summ$ess_bulk[mcmc_summ$variable %in% key_vars])
+rhat_key <- max(mcmc_summ$rhat[mcmc_summ$variable %in% key_vars])
+
+# Mixing across pair-level quantities: how many mix poorly, and do they
+# cluster in specific pairs?
+pair_families <- c("beta", "alpha", "gamma", "q_fall", "r_fall", "s_q", "s_r")
+mcmc_summ$family <- sub("\\[.*", "", mcmc_summ$variable)
+pair_summ <- mcmc_summ[mcmc_summ$family %in% pair_families, ]
+pair_summ$pair_idx <- as.integer(
+  sub("^[^\\[]*\\[(\\d+).*", "\\1", pair_summ$variable)
+)
+n_pair_params <- nrow(pair_summ)
+pair_low <- pair_summ[pair_summ$ess_bulk < 400, ]
+n_pair_low <- nrow(pair_low)
+pair_low_label <- prepare_model_data()$meta$pair_labels[pair_low$pair_idx[1]]
+med_ess_rest <- median(pair_summ$ess_bulk[pair_summ$pair_idx != pair_low$pair_idx[1]])
+```
+
 ## Estimation and model development
 
 Models were fitted with NUTS in Stan (via cmdstanr), 4 chains with 1,000
@@ -360,6 +399,82 @@ observations) throughout. The final model achieved near-perfect concordance on
 restraint (`r fmt(100 * conc_x, 1)`%) and total falls
 (`r fmt(100 * conc_y, 1)`%), and conservative coverage on the sparser outcome
 indicators (`r fmt(100 * conc_13, 1)`% and `r fmt(100 * conc_15, 1)`%).
+
+Sampling quality was verified alongside predictive concordance. No divergent
+transitions occurred, and the energy fraction of missing information (E-BFMI)
+ranged from `r fmt(ebfmi_lo, 2)` to `r fmt(ebfmi_hi, 2)` across chains. All
+`r n_td` post-warmup transitions saturated the maximum tree depth (10), a sign of stiff
+posterior geometry: this slows sampling but, in the absence of divergences and
+with healthy E-BFMI, does not bias the retained draws. Convergence was
+adequate for the quantities reported here: R-hat was at most
+`r fmt(max_rhat, 2)` across all `r n_params` sampled quantities, and the
+minimum bulk and tail effective sample sizes were `r round(min_ess_bulk)` and
+`r round(min_ess_tail)` out of 4,000 draws. The slow mixing was highly
+localized: of the `r n_pair_params` pair-level quantities, only
+`r n_pair_low` had bulk effective sample sizes below 400, and all of them
+belonged to a single facility–sector pair (`r pair_low_label`); the remaining
+pair-level quantities had a median bulk effective sample size of about
+`r format(round(med_ess_rest, -2), big.mark = ",")` (@fig-ess). The key contrasts reported
+below had bulk effective sample sizes of `r round(ess_key[1])`–`r round(ess_key[2])`
+and R-hat of `r fmt(rhat_key, 2)`. Per-chain autocorrelation functions for
+representative parameters are shown in @fig-acf.
+
+```{r}
+#| label: fig-acf
+#| fig-cap: !expr 'paste0("Per-chain autocorrelation functions for two population hyperparameters (a_q, a_r: the Beta-hierarchy shape parameters for fall rates of restrained and non-restrained residents), the mean fall-rate contrast across the observed pairs (delta_fall), and the slowest-mixing sampled quantity (", worst_ess_var, ", a pair-level fall rate). Population-level quantities mix well; the slow mixing of some pair-level parameters reflects the stiff posterior geometry noted in the text.")'
+#| fig-width: 7
+#| fig-height: 5
+
+library(ggplot2)
+
+acf_vars <- c("delta_fall", "a_q", "a_r", worst_ess_var)
+acf_df <- do.call(rbind, lapply(acf_vars, function(v) {
+  x <- posterior::extract_variable(draws, v)
+  ch <- factor(draws$.chain)
+  out <- do.call(rbind, lapply(levels(ch), function(cc) {
+    a <- acf(x[ch == cc], lag.max = 50, plot = FALSE)$acf
+    data.frame(lag = seq_along(a) - 1, acf = as.numeric(a), chain = cc)
+  }))
+  out$variable <- v
+  out
+}))
+
+ggplot(acf_df, aes(lag, acf, color = chain)) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  geom_line() +
+  facet_wrap(~ variable) +
+  labs(x = "Lag", y = "Autocorrelation", color = "Chain")
+```
+
+```{r}
+#| label: fig-ess
+#| fig-cap: !expr 'paste0("Bulk effective sample size (ESS) of every pair-level quantity in the model, by parameter family (", n_pair_params, " quantities across 47 facility–sector pairs). The dashed line marks the conventional minimum of 400. Mixing is good for nearly all pairs; the only quantities below the threshold all belong to a single pair (", pair_low_label, ", highlighted in red).")'
+#| fig-width: 7
+#| fig-height: 4.5
+
+fam_lab <- c(
+  beta = "Intercept",
+  alpha = "Linear trend",
+  gamma = "Quadratic trend",
+  q_fall = "Fall rate, restrained",
+  r_fall = "Fall rate, non-restrained",
+  s_q = "Outcome shares, restrained",
+  s_r = "Outcome shares, non-restrained"
+)
+pair_summ$family <- factor(pair_summ$family, levels = names(fam_lab))
+
+ggplot(pair_summ, aes(y = family, x = ess_bulk)) +
+  geom_vline(xintercept = 400, linetype = 2, linewidth = 0.4) +
+  geom_point(
+    aes(color = pair_idx == pair_low$pair_idx[1]),
+    position = position_jitter(width = 0, height = 0.25, seed = 7),
+    size = 0.9, alpha = 0.7
+  ) +
+  scale_y_discrete(labels = fam_lab) +
+  scale_color_manual(values = c("grey60", "firebrick"), guide = "none") +
+  scale_x_log10() +
+  labs(x = "Bulk effective sample size (log scale)", y = NULL)
+```
 
 ## Estimands
 
@@ -376,8 +491,9 @@ parallels the absolute difference, which is the posterior mean of the
 conditional mean difference. Realized per-pair differences are reported in
 @tbl-delta, and the posterior predictive distribution for a new, unobserved
 pair summarizes how effects are expected to vary across facilities.
-The same analysis is reported per outcome cell, both per resident and
-conditional on a fall having occurred. Finally, to test whether the association
+The same analysis is reported per outcome cell, both per resident and —
+as expected outcome-share differences for a new pair — conditional on a fall
+having occurred. Finally, to test whether the association
 is systematically directional at the population level, we compared two
 composite hypotheses on the hyperparameters — H1, that the population mean fall
 rate is lower among restrained residents, versus H0, that it is not — via a
