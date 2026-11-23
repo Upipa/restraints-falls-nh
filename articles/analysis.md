@@ -85,16 +85,18 @@ fit <- fit_model(prepared = prep) # full fit (~6 h); use quick = TRUE for a fast
 ## Results
 
 The association between restraint and falls is **strongly
-heterogeneous** across facility–sector pairs. Of the 47 pairs, about 15
-show credible benefit (restrained residents fall less), about 8 show
-credible harm, and the rest are uncertain — the effect changes sign
-across facilities. For a new, unobserved facility–sector pair, the
-posterior predictive probability of any benefit is only about 61%.
+heterogeneous** across the 47 facility–sector pairs: 15 show credible
+benefit (restrained residents fall less, posterior probability of a
+negative contrast ≥ 0.95), 8 show credible harm, and 24 are uncertain —
+the effect changes sign across facilities. For a new, unobserved
+facility–sector pair, the posterior predictive probability of any
+benefit is only about 61%.
 
 For **major-outcome falls** (the clinically important ones), the average
-effect is compatible with zero and predictive evidence of benefit is
-weak (P ≈ 0.60). On falls with minor outcomes, more pairs show credible
-harm (10) than credible benefit (6).
+effect is compatible with zero (see `delta_major` above) and the
+predictive probability of a reduction for a new pair is about 60%. The
+reduction in total falls is concentrated on falls without clinical
+consequences.
 
 ## Conclusions
 
