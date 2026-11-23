@@ -13,3 +13,8 @@ manuscript/_output/
 .vscode
 linkedin-post.png
 manuscript/slide-marianna.pptx
+
+# Build artifacts
+vignettes/*.html
+vignettes/*_files/
+manuscript/*.rmarkdown
