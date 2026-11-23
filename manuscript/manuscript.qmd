@@ -365,10 +365,15 @@ indicators (`r fmt(100 * conc_13, 1)`% and `r fmt(100 * conc_15, 1)`%).
 
 Unless otherwise stated, in-text estimates refer to the population level: the
 mean fall rates of restrained and non-restrained residents under the
-hierarchy, and their absolute difference (δ). Relative effects are summarized
-by medians, because the posterior mean of the population-level ratio does not
-exist (the posterior of the Beta shape parameter retains mass below 1, where
-the expectation diverges). Realized per-pair differences are reported in
+hierarchy, and their absolute difference (δ). The relative effect is reported
+as the risk ratio (RR) for a new, unobserved facility–sector pair. The
+expectation of this ratio given the hyperparameters does not exist — the
+posterior of the Beta shape parameter of the non-restrained rate retains mass
+below 1, where the expected reciprocal diverges — so the ratio is summarized
+by its conditional median, which is always well defined though not available
+in closed form, and estimated by the posterior mean of that median. This
+parallels the absolute difference, which is the posterior mean of the
+conditional mean difference. Realized per-pair differences are reported in
 @tbl-delta, and the posterior predictive distribution for a new, unobserved
 pair summarizes how effects are expected to vary across facilities.
 The same analysis is reported per outcome cell, both per resident and
@@ -390,8 +395,8 @@ throughout.
 
 At the population level, restrained residents fell slightly less than
 non-restrained ones (δ = `r fmt(mean(pop_delta_fall))`, 95% HDI
-`r fmt_hdi(pop_delta_fall)`; median RR = `r fmt(median(pop_rr_fall), 2)`, 95%
-HDI `r fmt_hdi(pop_rr_fall, 2)`). The mean difference was negative with
+`r fmt_hdi(pop_delta_fall)`; median risk ratio (RR) = `r fmt(mean(rr_med_new), 2)`, 95%
+HDI `r fmt_hdi(rr_med_new, 2)`). The mean difference was negative with
 `r round(100 * p_pop_neg)`% posterior probability (Bayes factor
 `r fmt(bf_mean_fall, 1)` against the null of no average directional effect).
 An estimated `r round(100 * p_new_benefit)`% of facility–sector pairs in the
@@ -404,8 +409,7 @@ pairs (@tbl-delta). About `r n_fall["benefit"]` pairs showed credible benefit
 (P(δ < 0) ≥ 0.95), `r n_fall["harm"]` credible harm (P(δ < 0) ≤ 0.05, up to δ =
 +`r fmt(max_harm_delta, 2)`), and `r n_fall["uncertain"]` were uncertain. For a
 new, unobserved pair, the posterior predictive probability of benefit was
-`r round(100 * p_new_benefit)`% (median risk ratio `r fmt(rr_new_med, 2)`, with
-a very wide predictive interval). The heterogeneity was concentrated among
+`r round(100 * p_new_benefit)`% (median RR `r fmt(mean(rr_med_new), 2)`). The heterogeneity was concentrated among
 restrained residents: between-pair variability of $q_k$ far exceeded that of
 $r_k$ (logit-scale SD `r fmt(sd_logit_q, 2)` vs `r fmt(sd_logit_r, 2)`). The delta was not associated with the facility's
 observed restraint rate, a proxy for local restraint policy.
