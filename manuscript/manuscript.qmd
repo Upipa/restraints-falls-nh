@@ -789,21 +789,30 @@ characteristics of each facility, and confirmed with individual-level data.
 
 # Declarations
 
-**Ethics approval and consent to participate.** <!-- TODO: ethics statement — aggregated anonymized monitoring data; verify need for ethics approval / delibera reference -->
+**Ethics approval and consent to participate.** Not applicable. The study
+uses fully aggregated and anonymized quality-monitoring data; no
+individual-level information was accessed. Permission to analyse the data and
+publish the results was granted by UPIPA.
 
 **Consent for publication.** Not applicable.
 
-**Availability of data and materials.** The analysis code is available at
-https://github.com/upipa/restraints-falls-nh. The data are quality-monitoring
-records of UPIPA member facilities and are not publicly available.
-<!-- TODO: verify data-sharing statement with UPIPA -->
+**Availability of data and materials.** The anonymized dataset analysed in
+this study is included in the companion R package, and the analysis code is
+available at https://github.com/upipa/restraints-falls-nh.
 
-**Competing interests.** The authors declare no competing interests.
+**Competing interests.** The author is employed by UPIPA, an organization
+that promotes the reduction of physical restraint use in its member nursing
+homes. The author declares no personal competing interests.
 
-**Funding.** <!-- TODO -->
+**Funding.** This research received no specific grant from any funding agency
+in the public, commercial, or not-for-profit sectors.
 
-**Authors' contributions.** <!-- TODO -->
+**Authors' contributions.** IM is the sole author and was responsible for all
+aspects of the work: study conception, data curation, formal analysis,
+methodology, software, writing, and approval of the final manuscript.
 
-**Acknowledgements.** <!-- TODO -->
+**Acknowledgements.** The author thanks the Scientific Committee of the
+Indicare Salute Lab project (UPIPA) for supporting this work, and the member
+nursing homes participating in the quality-monitoring system.
 
 # References
