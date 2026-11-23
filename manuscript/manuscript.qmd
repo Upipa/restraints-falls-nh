@@ -410,7 +410,7 @@ population are expected to experience fewer falls among restrained residents.
 ## Heterogeneity across facilities
 
 The association was strongly heterogeneous across the `r K` facility–sector
-pairs (@tbl-delta). About `r n_fall["benefit"]` pairs showed credible benefit
+pairs (@fig-delta; per-pair values in @tbl-delta). About `r n_fall["benefit"]` pairs showed credible benefit
 (P(δ < 0) ≥ 0.95), `r n_fall["harm"]` credible harm (P(δ < 0) ≤ 0.05, up to δ =
 +`r fmt(max_harm_delta, 2)`), and `r n_fall["uncertain"]` were uncertain. For a
 new, unobserved pair, the posterior predictive probability of benefit was
@@ -420,14 +420,17 @@ $r_k$ (logit-scale SD `r fmt(sd_logit_q, 2)` vs `r fmt(sd_logit_r, 2)`). The del
 observed restraint rate, a proxy for local restraint policy.
 
 ```{r}
-#| label: tbl-delta
-#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 95% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package."
+#| label: fig-delta
+#| fig-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (δ) per facility–sector pair, with 95% highest density intervals. Pairs are ordered by posterior mean and colored by classification: credible benefit (P(δ < 0) ≥ 0.95), credible harm (P(δ < 0) ≤ 0.05), or uncertain. The same values are reported in @tbl-delta."
 #| echo: false
 #| eval: true
 #| message: false
 #| warning: false
+#| fig-width: 6.5
+#| fig-height: 7
 
 library(restraintsfalls)
+library(ggplot2)
 
 draws <- load_fit()
 pair_labels <- prepare_model_data()$meta$pair_labels
@@ -441,6 +444,45 @@ rf <- as.matrix(posterior::as_draws_matrix(posterior::subset_draws(
   variable = "r_fall"
 )))
 delta <- qf - rf
+
+fp <- lapply(seq_len(ncol(delta)), function(k) {
+  v <- delta[, k]
+  h <- bayestestR::hdi(v)
+  data.frame(
+    pair = pair_labels[k],
+    m = mean(v), lo = h$CI_low, hi = h$CI_high,
+    p_neg = mean(v < 0)
+  )
+}) |>
+  do.call(rbind, args = _)
+fp$classe <- ifelse(fp$p_neg >= 0.95, "Credible benefit",
+  ifelse(fp$p_neg <= 0.05, "Credible harm", "Uncertain")
+)
+fp$classe <- factor(
+  fp$classe,
+  levels = c("Credible benefit", "Uncertain", "Credible harm")
+)
+fp <- fp[order(fp$m), ]
+fp$pair <- factor(fp$pair, levels = fp$pair)
+
+ggplot(fp, aes(x = m, y = pair, color = classe)) +
+  geom_vline(xintercept = 0, linetype = 2, linewidth = 0.3) +
+  geom_errorbar(aes(xmin = lo, xmax = hi), width = 0, linewidth = 0.4) +
+  geom_point(size = 1.4) +
+  labs(
+    x = expression(delta == q - r ~ "(fall probability, restrained \u2212 non-restrained)"),
+    y = NULL, color = NULL
+  ) +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: tbl-delta
+#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 95% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package (same per-pair differences shown in @fig-delta)."
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
 
 tab <- apply(delta, 2, function(v) {
   h <- bayestestR::hdi(v)
