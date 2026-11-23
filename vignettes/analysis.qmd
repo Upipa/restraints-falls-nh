@@ -60,6 +60,62 @@ draws <- load_fit()
 ```
 
 ```{r}
+#| label: summary-numbers
+#| include: false
+# All numbers quoted below are computed live from the shipped draws.
+
+# Per-pair fall-rate contrasts (restrained minus non-restrained)
+pair_labels <- prepare_model_data()$meta$pair_labels
+qf <- as.matrix(posterior::as_draws_matrix(
+  posterior::subset_draws(draws, variable = "q_fall")
+))
+rf <- as.matrix(posterior::as_draws_matrix(
+  posterior::subset_draws(draws, variable = "r_fall")
+))
+delta_pairs <- qf - rf
+p_neg_pairs <- colMeans(delta_pairs < 0)
+n_benefit <- sum(p_neg_pairs >= 0.95)
+n_harm <- sum(p_neg_pairs <= 0.05)
+n_uncertain <- length(p_neg_pairs) - n_benefit - n_harm
+
+# Predictive probability of benefit for a new, unobserved pair
+getv <- function(v) posterior::extract_variable(draws, v)
+p_new_benefit <- mean(
+  rbeta(nrow(draws), getv("a_q"), getv("b_q")) <
+    rbeta(nrow(draws), getv("a_r"), getv("b_r"))
+)
+
+# Predictive per-resident contrast for major-outcome falls, new pair
+# (Monte Carlo over the logistic-normal outcome-share hierarchy, same
+# construction as manuscript/compute-results.R)
+set.seed(9157)
+getm <- function(v) {
+  as.matrix(posterior::as_draws_matrix(posterior::subset_draws(draws, variable = v)))
+}
+softmax3 <- function(a) {
+  mx <- pmax(a[,, 1], a[,, 2], a[,, 3])
+  e <- exp(sweep(a, 1:2, mx))
+  sweep(e, 1:2, e[,, 1] + e[,, 2] + e[,, 3], `/`)
+}
+Msim <- 2000
+ndraw <- nrow(draws)
+idx <- rep(1:3, each = Msim)
+s_q_new <- softmax3(array(
+  rnorm(ndraw * Msim * 3, getm("mu_q")[, idx], getm("sigma_q")[, idx]),
+  c(ndraw, Msim, 3)
+))
+s_r_new <- softmax3(array(
+  rnorm(ndraw * Msim * 3, getm("mu_r")[, idx], getm("sigma_r")[, idx]),
+  c(ndraw, Msim, 3)
+))
+q_new <- rbeta(ndraw, getv("a_q"), getv("b_q"))
+r_new <- rbeta(ndraw, getv("a_r"), getv("b_r"))
+p_major_new_red <- mean(
+  q_new * s_q_new[,, 3] - r_new * s_r_new[,, 3] < 0
+)
+```
+
+```{r}
 #| label: key-contrasts
 # Key contrasts, computed live from the shipped draws:
 posterior::summarise_draws(
@@ -87,16 +143,19 @@ fit <- fit_model(prepared = prep) # full fit (~6 h); use quick = TRUE for a fast
 ## Results
 
 The association between restraint and falls is **strongly heterogeneous**
-across facility–sector pairs. Of the 47 pairs, about 15 show credible benefit
-(restrained residents fall less), about 8 show credible harm, and the rest are
+across the `r length(p_neg_pairs)` facility–sector pairs:
+`r n_benefit` show credible benefit
+(restrained residents fall less, posterior probability of a negative contrast
+≥ 0.95), `r n_harm` show credible harm, and `r n_uncertain` are
 uncertain — the effect changes sign across facilities. For a new, unobserved
 facility–sector pair, the posterior predictive probability of any benefit is
-only about 61%.
+only about `r round(100 * p_new_benefit)`%.
 
 For **major-outcome falls** (the clinically important ones), the average
-effect is compatible with zero and predictive evidence of benefit is weak
-(P ≈ 0.60). On falls with minor outcomes, more pairs show credible harm (10)
-than credible benefit (6).
+effect is compatible with zero (see `delta_major` above) and the predictive
+probability of a reduction for a new pair is about
+`r round(100 * p_major_new_red)`%. The reduction in total falls is
+concentrated on falls without clinical consequences.
 
 ## Conclusions
 
