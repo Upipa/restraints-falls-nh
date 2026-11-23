@@ -494,7 +494,8 @@ population are expected to experience fewer falls among restrained residents.
 ## Heterogeneity across facilities
 
 The association was strongly heterogeneous across the `r K` facility–sector
-pairs (@fig-delta; per-pair values in @tbl-delta). About `r n_fall["benefit"]` pairs showed credible benefit
+pairs (@fig-delta; per-pair values in @tbl-delta, Supplementary
+Material). About `r n_fall["benefit"]` pairs showed credible benefit
 (P(δ < 0) ≥ 0.95), `r n_fall["harm"]` credible harm (P(δ < 0) ≤ 0.05, up to δ =
 +`r fmt(max_harm_delta, 2)`), and `r n_fall["uncertain"]` were uncertain. For a
 new, unobserved pair, the posterior predictive probability of benefit was
@@ -558,36 +559,6 @@ ggplot(fp, aes(x = m, y = pair, color = classe)) +
   ) +
   theme(legend.position = "bottom")
 ```
-
-```{r}
-#| label: tbl-delta
-#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 95% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package (same per-pair differences shown in @fig-delta)."
-#| echo: false
-#| eval: true
-#| message: false
-#| warning: false
-
-tab <- apply(delta, 2, function(v) {
-  h <- bayestestR::hdi(v)
-  c(
-    delta_mean = mean(v),
-    hdi_lo = h$CI_low,
-    hdi_hi = h$CI_high,
-    p_neg = mean(v < 0)
-  )
-}) |>
-  t() |>
-  as.data.frame() |>
-  round(3)
-
-tab <- data.frame(Pair = pair_labels, tab, row.names = NULL)
-names(tab) <- c("Pair", "Mean delta", "HDI lower", "HDI upper", "P(delta < 0)")
-knitr::kable(tab)
-```
-
-<!-- TODO: 47 righe sono tante per il testo principale — valutare se spostare
-la tabella completa in supplementary e tenere nel testo solo una figura
-(forest plot dei delta per coppia) -->
 
 ## Severity-specific outcomes
 
@@ -784,3 +755,31 @@ Indicare Salute Lab project (UPIPA) for supporting this work, and the member
 nursing homes participating in the quality-monitoring system.
 
 # References
+
+# Supplementary material {.unnumbered}
+
+```{r}
+#| label: tbl-delta
+#| tbl-cap: "Posterior mean difference in fall probability between restrained and non-restrained residents (delta = q − r) per facility–sector pair, with 95% highest density interval and the posterior probability of a negative delta. Pairs are anonymized (facility_sector). Computed live from the posterior draws shipped with the companion package (same per-pair differences shown in @fig-delta)."
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+
+tab <- apply(delta, 2, function(v) {
+  h <- bayestestR::hdi(v)
+  c(
+    delta_mean = mean(v),
+    hdi_lo = h$CI_low,
+    hdi_hi = h$CI_high,
+    p_neg = mean(v < 0)
+  )
+}) |>
+  t() |>
+  as.data.frame() |>
+  round(3)
+
+tab <- data.frame(Pair = pair_labels, tab, row.names = NULL)
+names(tab) <- c("Pair", "Mean delta", "HDI lower", "HDI upper", "P(delta < 0)")
+knitr::kable(tab)
+```
