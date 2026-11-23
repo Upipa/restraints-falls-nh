@@ -102,25 +102,21 @@ softmax3 <- function(a) {
 # logistic-normal has no closed form -> Monte Carlo over eta draws.
 set.seed(9157)
 Msim <- 2000
+# E[s | theta] per posterior draw and outcome cell (ndraw x 3)
+share_means <- function(mu, sigma) {
+  idx <- rep(1:3, each = Msim)
+  e <- array(
+    rnorm(ndraw * Msim * 3, mu[, idx], sigma[, idx]),
+    c(ndraw, Msim, 3)
+  )
+  s <- softmax3(e)
+  vapply(1:3, function(m) rowMeans(s[,, m]), numeric(ndraw))
+}
+es_q <- share_means(getm("mu_q"), getm("sigma_q"))
+es_r <- share_means(getm("mu_r"), getm("sigma_r"))
 # Returns the population mean rates (restrained and non-restrained) per draw
 cell_mean_rates <- function(m) {
-  muq <- getm("mu_q")
-  siq <- getm("sigma_q")
-  mur <- getm("mu_r")
-  sir <- getm("sigma_r")
-  idx <- rep(1:3, each = Msim)
-  eq <- array(
-    rnorm(ndraw * Msim * 3, muq[, idx], siq[, idx]),
-    c(ndraw, Msim, 3)
-  )
-  er <- array(
-    rnorm(ndraw * Msim * 3, mur[, idx], sir[, idx]),
-    c(ndraw, Msim, 3)
-  )
-  list(
-    q = pred_q * rowMeans(softmax3(eq)[,, m]),
-    r = pred_r * rowMeans(softmax3(er)[,, m])
-  )
+  list(q = pred_q * es_q[, m], r = pred_r * es_r[, m])
 }
 rates_minor <- cell_mean_rates(2)
 rates_major <- cell_mean_rates(3)
@@ -146,9 +142,17 @@ pop_base_major <- rates_major$r
 # (q_bar/r_bar columns are [total, minor, major])
 delta_none <- delta_fall - delta_minor
 
-# Share-of-outcome contrasts conditional on a fall having occurred (new pair)
-p_share_minor_incr <- mean(s_q_new[, 2] > s_r_new[, 2])
-p_share_major_incr <- mean(s_q_new[, 3] > s_r_new[, 3])
+# Outcome-share differences conditional on a fall (new pair): the estimand is
+# E_theta[E[s_q_new - s_r_new | theta]] — the same construction as the
+# fall-rate delta (posterior mean of the conditional mean difference), with
+# E[s | theta] Monte-Carlo'd above.
+share_delta_minor <- es_q[, 2] - es_r[, 2]
+share_delta_major <- es_q[, 3] - es_r[, 3]
+# By closure of the simplex, the no-outcome share difference is the negative
+# of the sum of the other two cells, draw by draw
+share_delta_none <- es_q[, 1] - es_r[, 1]
+p_share_minor_incr <- mean(share_delta_minor > 0)
+p_share_major_incr <- mean(share_delta_major > 0)
 
 # Per-pair deltas: total falls and minor-outcome falls
 # (in the flattened s_q/s_r draws, pair k varies fastest within outcome cell m:
