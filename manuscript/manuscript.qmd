@@ -483,10 +483,14 @@ directional evidence: at the population level, restrained residents
 experienced fewer of them (δ = `r fmt(mean(ed_none))`, 95% HDI
 `r fmt_hdi(ed_none)`), with `r fmt(p_mean_none, 2)` posterior probability of
 a negative mean difference (Bayes factor `r fmt(bf_mean_none, 1)`). Conditional on a
-fall having occurred, the share
-of minor outcomes tended to increase with restraint
-(`r round(100 * p_share_minor_incr)`% posterior probability), while the share
-of major outcomes was unchanged (`r round(100 * p_share_major_incr)`%).
+fall having occurred, the expected share
+of minor outcomes was substantially higher among restrained residents
+(difference `r fmt(mean(share_delta_minor))`, 95% HDI
+`r fmt_hdi(share_delta_minor)`; `r round(100 * p_share_minor_incr, 1)`%
+posterior probability of an increase), while the expected share
+of major outcomes was essentially unchanged
+(difference `r fmt(mean(share_delta_major))`, 95% HDI
+`r fmt_hdi(share_delta_major)`).
 
 # Discussion
 
